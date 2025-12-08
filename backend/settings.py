@@ -36,8 +36,6 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
-AUTH_USER_MODEL = 'accounts.User'
-
 
 # Application definition
 
@@ -54,12 +52,14 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
 
     # apps locales (se crearán)
-    'apps.accounts',
+    'apps.accounts.apps.AccountsConfig',
     'apps.productos',
     'apps.inventario',
     'apps.bins',
     'apps.ventas',
 ]
+
+AUTH_USER_MODEL = 'accounts.User'
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -87,7 +87,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'bintrack.wsgi.application'
+WSGI_APPLICATION = 'backend.wsgi.application'
 
 
 # Database
