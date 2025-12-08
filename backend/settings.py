@@ -51,6 +51,7 @@ INSTALLED_APPS = [
 
      # 3rd party
     "rest_framework",
+    'rest_framework_simplejwt',
 
     # apps locales (se crearán)
     'apps.accounts',
@@ -139,3 +140,9 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    )
+}
