@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import authenticate
+from rest_framework_simplejwt.tokens import RefreshToken
 from .models import User, SubscriptionPlan, UserSubscription
 
 
@@ -18,17 +19,14 @@ class RegisterSerializer(serializers.ModelSerializer):
 
         user = User(**validated_data)
         user.set_password(password)
-        user.suscripcion_activa = False  # El usuario inicia sin suscripción activa
+        user.suscripcion_activa = False
         user.save()
-
-        # ❗ NO crear suscripción aquí
-        # La suscripción se activará una vez que pague.
 
         return user
 
 
 # ----------------------------------------------------
-# Serializer: LOGIN
+# Serializer: LOGIN (JWT)
 # ----------------------------------------------------
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
@@ -38,17 +36,37 @@ class LoginSerializer(serializers.Serializer):
         email = data.get("email")
         password = data.get("password")
 
-        user = authenticate(username=email, password=password)
+        # Buscar usuario por email
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            raise serializers.ValidationError({"email": "El email no está registrado."})
+
+        # Autenticar
+        user = authenticate(username=user.username, password=password)
 
         if not user:
-            raise serializers.ValidationError("Credenciales inválidas")
+            raise serializers.ValidationError({"password": "Contraseña incorrecta."})
 
-        data["user"] = user
-        return data
+        if not user.is_active:
+            raise serializers.ValidationError("La cuenta está desactivada.")
+
+        # Crear tokens JWT
+        refresh = RefreshToken.for_user(user)
+
+        return {
+            "refresh": str(refresh),
+            "access": str(refresh.access_token),
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+            }
+        }
 
 
 # ----------------------------------------------------
-# Serializer: CONSULTAR ESTADO DE SUSCRIPCIÓN
+# Serializer: ESTADO DE SUSCRIPCIÓN
 # ----------------------------------------------------
 class UserSubscriptionSerializer(serializers.ModelSerializer):
     plan = serializers.CharField(source="plan.nombre")

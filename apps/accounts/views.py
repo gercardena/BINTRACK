@@ -1,38 +1,54 @@
-from django.shortcuts import render
-
-# Create your views here.
-from rest_framework import status
+from rest_framework import generics
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.permissions import AllowAny
-from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.permissions import AllowAny, IsAuthenticated
 
-from .serializers import RegisterSerializer
-from .models import User
+from .models import UserSubscription
+from .serializers import (
+    RegisterSerializer,
+    LoginSerializer,
+    UserSubscriptionSerializer
+)
 
 
-class RegisterView(APIView):
+# ----------------------------------------------------
+# Registro de usuario
+# ----------------------------------------------------
+class RegisterView(generics.CreateAPIView):
+    serializer_class = RegisterSerializer
     permission_classes = [AllowAny]
 
-    def post(self, request, *args, **kwargs):
-        """
-        Registra un usuario nuevo. Devuelve datos del usuario y tokens JWT.
-        """
-        serializer = RegisterSerializer(data=request.data)
-        if serializer.is_valid():
-            user = serializer.save()
 
-            # Generar tokens JWT para el usuario recién creado
-            refresh = RefreshToken.for_user(user)
-            data = {
-                "user": {
-                    "id": user.id,
-                    "username": user.username,
-                    "email": user.email,
-                },
-                "refresh": str(refresh),
-                "access": str(refresh.access_token),
-            }
-            return Response(data, status=status.HTTP_201_CREATED)
+# ----------------------------------------------------
+# Login (JWT)
+# ----------------------------------------------------
+class LoginView(APIView):
+    permission_classes = [AllowAny]
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    def post(self, request):
+        serializer = LoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(serializer.validated_data)
+
+
+# ----------------------------------------------------
+# Paso 5: Consultar estado de suscripción
+# ----------------------------------------------------
+class SubscriptionStatusView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            suscripcion = UserSubscription.objects.get(usuario=request.user, activa=True)
+        except UserSubscription.DoesNotExist:
+            return Response({
+                "suscrito": False,
+                "mensaje": "El usuario NO tiene una suscripción activa"
+            })
+
+        serializer = UserSubscriptionSerializer(suscripcion)
+
+        return Response({
+            "suscrito": True,
+            "detalle": serializer.data
+        })
