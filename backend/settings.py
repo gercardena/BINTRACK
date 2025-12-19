@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     'apps.inventario',
     'apps.bins',
     'apps.ventas',
+    'apps.payments.apps.PaymentsConfig',  # 👈 NUEVA
 ]
 
 AUTH_USER_MODEL = 'accounts.User'
