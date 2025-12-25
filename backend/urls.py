@@ -22,4 +22,5 @@ urlpatterns = [
 
     # Incluir rutas de accounts
     path('api/accounts/', include('apps.accounts.urls')),
+    path("api/payments/", include("apps.payments.urls")),
 ]

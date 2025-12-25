@@ -57,7 +57,7 @@ INSTALLED_APPS = [
     'apps.inventario',
     'apps.bins',
     'apps.ventas',
-    'apps.payments.apps.PaymentsConfig',  # 👈 NUEVA
+    'apps.payments.apps.PaymentsConfig',
 ]
 
 AUTH_USER_MODEL = 'accounts.User'
@@ -155,3 +155,19 @@ SIMPLE_JWT = {
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
+
+# ==============================
+# MERCADO PAGO
+# ==============================
+
+MERCADOPAGO_ACCESS_TOKEN = os.getenv("MERCADOPAGO_ACCESS_TOKEN")
+MERCADOPAGO_PUBLIC_KEY = os.getenv("MERCADOPAGO_PUBLIC_KEY")
+MERCADOPAGO_ENV = os.getenv("MERCADOPAGO_ENV", "sandbox")
+
+
+
+# URLs de retorno (sandbox)
+MERCADOPAGO_SUCCESS_URL = "http://127.0.0.1:8000/api/payments/success/"
+MERCADOPAGO_FAILURE_URL = "http://127.0.0.1:8000/api/payments/failure/"
+MERCADOPAGO_PENDING_URL = "http://127.0.0.1:8000/api/payments/pending/"
+
