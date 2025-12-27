@@ -27,3 +27,18 @@ class MercadoPagoService:
             raise Exception(f"Error MercadoPago: {result}")
 
         return result["response"]
+
+    # =====================================================
+    # 🔹 NUEVO — Paso 6.4.2
+    # Servicio para consultar estado del pago
+    # =====================================================
+    def consultar_pago(self, payment_id):
+        """
+        Consulta un pago en MercadoPago por su ID
+        """
+        result = self.sdk.payment().get(payment_id)
+
+        if result["status"] != 200:
+            raise Exception(f"Error consultando pago MercadoPago: {result}")
+
+        return result["response"]

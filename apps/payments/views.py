@@ -1,7 +1,9 @@
 from django.conf import settings
+from django.shortcuts import get_object_or_404
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework import status
 
 from .models import Payment
@@ -50,4 +52,51 @@ class CrearPagoView(APIView):
                 "init_point": init_point,
             },
             status=status.HTTP_201_CREATED,
+        )
+
+
+# ==============================
+# NUEVA VISTA — Paso 6.4.3
+# ==============================
+
+class ConfirmarPagoView(APIView):
+    permission_classes = [AllowAny]  # MercadoPago NO envía JWT
+
+    def get(self, request):
+        payment_id_mp = request.GET.get("payment_id")
+
+        if not payment_id_mp:
+            return Response(
+                {"error": "payment_id no recibido"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        mp = MercadoPagoService()
+        mp_payment = mp.consultar_pago(payment_id_mp)
+
+        status_mp = mp_payment.get("status")
+
+        # Buscar el pago en nuestra BD
+        payment = get_object_or_404(
+            Payment,
+            external_id=payment_id_mp
+        )
+
+        # Mapear estado MercadoPago → BD
+        if status_mp == "approved":
+            payment.status = "approved"
+        elif status_mp == "pending":
+            payment.status = "pending"
+        else:
+            payment.status = "rejected"
+
+        payment.save()
+
+        return Response(
+            {
+                "payment_id": payment.id,
+                "mercadopago_status": status_mp,
+                "status": payment.status,
+            },
+            status=status.HTTP_200_OK,
         )
