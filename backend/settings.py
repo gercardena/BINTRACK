@@ -34,7 +34,10 @@ SECRET_KEY = 'django-insecure-u+o8!ea-d-6rd+4zz14da515m-@g(y^i-@95x6#r7w0y76sn4!
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["127.0.0.1",
+    "localhost",
+    "a8e2cdd49e9a.ngrok-free.app",
+    ]
 
 
 # Application definition
@@ -167,6 +170,9 @@ MERCADOPAGO_ENV = os.getenv("MERCADOPAGO_ENV", "sandbox")
 
 
 # URLs de retorno (sandbox)
+MERCADOPAGO_NOTIFICATION_URL = (
+    "https://a8e2cdd49e9a.ngrok-free.app/api/payments/webhook/"
+)
 MERCADOPAGO_SUCCESS_URL = "http://127.0.0.1:8000/api/payments/success/"
 MERCADOPAGO_FAILURE_URL = "http://127.0.0.1:8000/api/payments/failure/"
 MERCADOPAGO_PENDING_URL = "http://127.0.0.1:8000/api/payments/pending/"

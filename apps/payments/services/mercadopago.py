@@ -6,7 +6,7 @@ class MercadoPagoService:
     def __init__(self):
         self.sdk = mercadopago.SDK(settings.MERCADOPAGO_ACCESS_TOKEN)
 
-    def crear_preferencia(self, *, titulo, precio, user_id):
+    def crear_preferencia(self, *, titulo, precio, payment_id):
         preference_data = {
             "items": [
                 {
@@ -16,9 +16,12 @@ class MercadoPagoService:
                     "currency_id": "CLP",
                 }
             ],
-            "metadata": {
-                "user_id": user_id
-            },
+
+            # 🔥 RELACIÓN REAL CON TU BD
+            "external_reference": str(payment_id),
+
+            # 🔥 WEBHOOK REAL
+            "notification_url": settings.MERCADOPAGO_NOTIFICATION_URL,
         }
 
         result = self.sdk.preference().create(preference_data)
@@ -28,14 +31,7 @@ class MercadoPagoService:
 
         return result["response"]
 
-    # =====================================================
-    # 🔹 NUEVO — Paso 6.4.2
-    # Servicio para consultar estado del pago
-    # =====================================================
     def consultar_pago(self, payment_id):
-        """
-        Consulta un pago en MercadoPago por su ID
-        """
         result = self.sdk.payment().get(payment_id)
 
         if result["status"] != 200:
