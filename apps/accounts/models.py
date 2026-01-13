@@ -47,23 +47,4 @@ class UserSubscription(models.Model):
 
     def esta_vigente(self):
         return self.activa and timezone.now() < self.fecha_fin
-
-
-# ----------------------------------------------------
-# Registro de pagos del usuario
-# ----------------------------------------------------
-class Payment(models.Model):
-    ESTADOS = (
-        ("pagado", "Pagado"),
-        ("fallido", "Fallido"),
-        ("pendiente", "Pendiente"),
-    )
-
-    usuario = models.ForeignKey(User, on_delete=models.CASCADE)
-    monto = models.PositiveIntegerField()
-    fecha_pago = models.DateTimeField(default=timezone.now)
-    estado = models.CharField(max_length=20, choices=ESTADOS, default="pendiente")
-    transaccion_id = models.CharField(max_length=100, blank=True, null=True)
-
-    def __str__(self):
-        return f"Pago de {self.usuario.username} - {self.estado}"
+    
