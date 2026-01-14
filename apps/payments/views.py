@@ -12,6 +12,10 @@ from django.views.decorators.csrf import csrf_exempt
 from .models import Payment
 from .services.mercadopago import MercadoPagoService
 
+ #from accounts.permissions import HasActiveSubscription
+from rest_framework.permissions import IsAuthenticated
+
+
 
 # ==============================
 # Crear pago (Paso 6.2 / 6.3)
