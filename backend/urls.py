@@ -23,4 +23,8 @@ urlpatterns = [
     # Incluir rutas de accounts
     path('api/accounts/', include('apps.accounts.urls')),
     path("api/payments/", include("apps.payments.urls")),
+    path("api/bins/", include("apps.bins.urls")),
+    path("api/inventario/", include("apps.inventario.urls")),
+    path("api/productos/", include("apps.productos.urls")),
+    path("api/ventas/", include("apps.ventas.urls")),
 ]
