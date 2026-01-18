@@ -12,7 +12,7 @@ from django.views.decorators.csrf import csrf_exempt
 from .models import Payment
 from .services.mercadopago import MercadoPagoService
 
- #from accounts.permissions import HasActiveSubscription
+from accounts.services.subscriptions import activate_subscription_for_user
 from rest_framework.permissions import IsAuthenticated
 
 
@@ -190,28 +190,14 @@ def MercadoPagoWebhookView(request):
 class SimularPagoAprobadoView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def post(self, request):
-        if not settings.DEBUG:
-            return Response(
-                {"error": "No permitido en producción"},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        payment_id = request.data.get("payment_id")
-
-        if not payment_id:
-            return Response(
-                {"error": "payment_id requerido"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        payment = get_object_or_404(Payment, id=payment_id)
+    def post(self, request, payment_id):
+        payment = Payment.objects.get(id=payment_id)
 
         # 1️⃣ Marcar pago aprobado
         payment.status = "approved"
         payment.save()
 
-        # 2️⃣ Activar suscripción del usuario
+        # 2️⃣ Activar suscripción del usuario (lógica temporal)
         user = payment.user
         user.suscripcion_activa = True
         user.save()
