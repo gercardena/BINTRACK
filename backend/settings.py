@@ -14,6 +14,7 @@ import os
 import sys
 from pathlib import Path
 from dotenv import load_dotenv
+from corsheaders.defaults import default_headers
 
 # Cargar archivo .env
 load_dotenv()
@@ -34,6 +35,12 @@ SECRET_KEY = 'django-insecure-u+o8!ea-d-6rd+4zz14da515m-@g(y^i-@95x6#r7w0y76sn4!
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
+CORS_ALLOW_ALL_ORIGINS = True
+
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    'authorization',
+]
+
 ALLOWED_HOSTS = ["127.0.0.1",
     "localhost",
     "a8e2cdd49e9a.ngrok-free.app",
@@ -53,6 +60,7 @@ INSTALLED_APPS = [
      # 3rd party
     "rest_framework",
     'rest_framework_simplejwt',
+    'corsheaders',
 
     # apps locales (se crearán)
     'apps.accounts.apps.AccountsConfig',
@@ -73,6 +81,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
+    
 ]
 
 ROOT_URLCONF = "backend.urls"
