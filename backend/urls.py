@@ -17,14 +17,24 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 
+# 👇 JWT
+from rest_framework_simplejwt.views import (
+    TokenObtainPairView,
+    TokenRefreshView,
+)
+
 urlpatterns = [
     path('admin/', admin.site.urls),
 
-    # Incluir rutas de accounts
+    # 🔐 Auth JWT
+    path('api/auth/login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+
+    # 📦 Apps
     path('api/accounts/', include('apps.accounts.urls')),
-    path("api/payments/", include("apps.payments.urls")),
-    path("api/bins/", include("apps.bins.urls")),
-    path("api/inventario/", include("apps.inventario.urls")),
-    path("api/productos/", include("apps.productos.urls")),
-    path("api/ventas/", include("apps.ventas.urls")),
+    path('api/payments/', include('apps.payments.urls')),
+    path('api/bins/', include('apps.bins.urls')),
+    path('api/inventario/', include('apps.inventario.urls')),
+    path('api/productos/', include('apps.productos.urls')),
+    path('api/ventas/', include('apps.ventas.urls')),
 ]
