@@ -76,3 +76,19 @@ class UserSubscriptionSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserSubscription
         fields = ['plan', 'precio', 'duracion', 'fecha_inicio', 'fecha_fin', 'activa']
+
+# ----------------------------------------------------
+# Serializer: PERFIL USUARIO (ENDPOINT PROTEGIDO)
+# ----------------------------------------------------
+class UserProfileSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "username",
+            "email",
+            "rut",
+            "telefono",
+            "suscripcion_activa",
+        ]

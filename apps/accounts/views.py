@@ -10,6 +10,9 @@ from .serializers import (
     UserSubscriptionSerializer
 )
 
+from .serializers import UserProfileSerializer
+
+
 
 # ----------------------------------------------------
 # Registro de usuario
@@ -52,3 +55,14 @@ class SubscriptionStatusView(APIView):
             "suscrito": True,
             "detalle": serializer.data
         })
+    
+# ----------------------------------------------------
+# PERFIL USUARIO (endpoint protegido real)
+# ----------------------------------------------------
+class UserProfileView(APIView):
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        serializer = UserProfileSerializer(request.user)
+        return Response(serializer.data)
