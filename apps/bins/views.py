@@ -1,25 +1,41 @@
-from django.shortcuts import render
-
-# Create your views here.
-# apps/bins/views.py
-
-from rest_framework.views import APIView
-from rest_framework.response import Response
+from rest_framework.generics import ListAPIView
 from rest_framework.permissions import IsAuthenticated
 
-from accounts.permissions import HasActiveSubscription
+from .models import BinType
+from .serializers import BinTypeSerializer
+
+from rest_framework import generics
+from rest_framework.permissions import IsAuthenticated
+
+from .models import Cliente, BinMovement
+from .serializers import ClienteSerializer, BinMovementSerializer
 
 
-class BinListView(APIView):
-    permission_classes = [
-        IsAuthenticated,
-        HasActiveSubscription
-    ]
+# -------------------------------------
+# Endpoint protegido
+# GET /api/bins/types/
+# -------------------------------------
+class BinTypeListView(ListAPIView):
 
-    def get(self, request):
-        return Response(
-            {
-                "message": "Acceso autorizado a bins",
-                "user": request.user.username
-            }
-        )
+    permission_classes = [IsAuthenticated]
+
+    serializer_class = BinTypeSerializer
+
+    def get_queryset(self):
+        return BinType.objects.all()
+    
+class ClienteListView(generics.ListAPIView):
+
+    serializer_class = ClienteSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Cliente.objects.filter(usuario=self.request.user)
+    
+class BinMovementListView(generics.ListAPIView):
+
+    serializer_class = BinMovementSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return BinMovement.objects.filter(usuario=self.request.user)

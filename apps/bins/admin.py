@@ -1,3 +1,6 @@
 from django.contrib import admin
+from .models import BinType, Cliente, BinMovement
 
-# Register your models here.
+admin.site.register(BinType)
+admin.site.register(Cliente)
+admin.site.register(BinMovement)

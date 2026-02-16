@@ -1,8 +1,9 @@
-# apps/bins/urls.py
-
 from django.urls import path
-from .views import BinListView
+from .views import BinTypeListView
+from .views import ClienteListView, BinMovementListView, BinTypeListView
 
 urlpatterns = [
-    path("bins/", BinListView.as_view(), name="bins-list"),
+    path("types/", BinTypeListView.as_view(), name="bin_types"),
+    path("clientes/", ClienteListView.as_view(), name="bin_clientes"),
+    path("movements/", BinMovementListView.as_view(), name="bin_movements"),
 ]
