@@ -1,23 +1,14 @@
-from django.shortcuts import render
-
-# Create your views here.
-from rest_framework.views import APIView
-from rest_framework.response import Response
+from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
 
-from accounts.permissions import HasActiveSubscription
+from .models import Inventory
+from .serializers import InventorySerializer
 
 
-class InventarioListView(APIView):
-    permission_classes = [
-        IsAuthenticated,
-        HasActiveSubscription
-    ]
+class InventoryListView(generics.ListAPIView):
 
-    def get(self, request):
-        return Response(
-            {
-                "message": "Acceso autorizado a inventario",
-                "user": request.user.username
-            }
-        )
+    permission_classes = [IsAuthenticated]
+    serializer_class = InventorySerializer
+
+    def get_queryset(self):
+        return Inventory.objects.all()

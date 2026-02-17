@@ -67,7 +67,7 @@ INSTALLED_APPS = [
     # apps locales (se crearán)
     'apps.accounts.apps.AccountsConfig',
     'apps.productos',
-    'apps.inventario',
+    'apps.inventario.apps.InventarioConfig',
     'apps.bins',
     'apps.ventas',
     'apps.payments.apps.PaymentsConfig',
