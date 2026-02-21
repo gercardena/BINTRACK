@@ -4,8 +4,13 @@ from .models import Inventory
 
 class InventorySerializer(serializers.ModelSerializer):
 
-    producto_nombre = serializers.CharField(
-        source="producto.nombre",
+    product_nombre = serializers.CharField(
+        source="product.nombre",
+        read_only=True
+    )
+
+    bin_nombre = serializers.CharField(
+        source="bin.nombre",
         read_only=True
     )
 
@@ -13,9 +18,12 @@ class InventorySerializer(serializers.ModelSerializer):
         model = Inventory
         fields = [
             "id",
-            "cliente",
-            "producto",
-            "producto_nombre",
+            "product",
+            "product_nombre",
+            "bin",
+            "bin_nombre",
             "cantidad",
+            "fecha_creacion",
             "fecha_actualizacion",
         ]
+

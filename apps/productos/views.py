@@ -1,23 +1,12 @@
-from django.shortcuts import render
-
-# Create your views here.
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-
-from accounts.permissions import HasActiveSubscription
+from rest_framework import generics, permissions
+from .models import Product
+from .serializers import ProductSerializer
 
 
-class ProductoListView(APIView):
-    permission_classes = [
-        IsAuthenticated,
-        HasActiveSubscription
-    ]
+class ProductListView(generics.ListAPIView):
 
-    def get(self, request):
-        return Response(
-            {
-                "message": "Acceso autorizado a productos",
-                "user": request.user.username
-            }
-        )
+    serializer_class = ProductSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Product.objects.filter(usuario=self.request.user)

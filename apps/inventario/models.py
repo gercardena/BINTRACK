@@ -1,16 +1,37 @@
 from django.db import models
+from django.conf import settings
+from apps.productos.models import Product
 
 
 class Inventory(models.Model):
 
-    nombre = models.CharField(max_length=150)
-    descripcion = models.TextField(blank=True)
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="inventories"
+    )
 
-    cantidad = models.IntegerField(default=0)
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name="inventories"
+    )
+
+    bin = models.ForeignKey(
+        "bins.BinType",
+        on_delete=models.CASCADE,
+        related_name="inventories"
+    )
+
+    cantidad = models.PositiveIntegerField(default=0)
 
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     fecha_actualizacion = models.DateTimeField(auto_now=True)
 
-    def __str__(self):
-        return self.nombre
+    class Meta:
+        unique_together = ("product", "bin")
+        verbose_name = "Inventory"
+        verbose_name_plural = "Inventories"
 
+    def __str__(self):
+        return f"{self.product.nombre} - {self.bin.nombre} ({self.cantidad})"

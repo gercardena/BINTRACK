@@ -1,23 +1,14 @@
-from django.shortcuts import render
-
-# Create your views here.
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-
-from accounts.permissions import HasActiveSubscription
+from rest_framework import viewsets, permissions
+from .models import Sale
+from .serializers import SaleSerializer
 
 
-class VentaListView(APIView):
-    permission_classes = [
-        IsAuthenticated,
-        HasActiveSubscription
-    ]
+class SaleViewSet(viewsets.ModelViewSet):
+    serializer_class = SaleSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
-    def get(self, request):
-        return Response(
-            {
-                "message": "Acceso autorizado a ventas",
-                "user": request.user.username
-            }
-        )
+    def get_queryset(self):
+        return Sale.objects.filter(usuario=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(usuario=self.request.user)

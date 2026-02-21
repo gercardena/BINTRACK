@@ -1,6 +1,7 @@
-from django.urls import path
-from .views import VentaListView
+from rest_framework.routers import DefaultRouter
+from .views import SaleViewSet
 
-urlpatterns = [
-    path("ventas/", VentaListView.as_view(), name="ventas-list"),
-]
+router = DefaultRouter()
+router.register(r"sales", SaleViewSet, basename="sales")
+
+urlpatterns = router.urls

@@ -69,7 +69,7 @@ INSTALLED_APPS = [
     'apps.productos',
     'apps.inventario.apps.InventarioConfig',
     'apps.bins',
-    'apps.ventas',
+    'apps.ventas.apps.VentasConfig',
     'apps.payments.apps.PaymentsConfig',
 ]
 
