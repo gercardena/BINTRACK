@@ -6,6 +6,7 @@ class SaleItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = SaleItem
         fields = "__all__"
+        read_only_fields = ["subtotal"]
 
 
 class SaleSerializer(serializers.ModelSerializer):
@@ -14,3 +15,12 @@ class SaleSerializer(serializers.ModelSerializer):
     class Meta:
         model = Sale
         fields = "__all__"
+        read_only_fields = [
+            "usuario",
+            "numero",
+            "estado",
+            "subtotal",
+            "iva",
+            "total",
+            "fecha_creacion",
+        ]

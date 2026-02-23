@@ -12,7 +12,7 @@ IVA_RATE = Decimal("0.19")
 
 
 # =========================================
-# 🔹 INVENTORY MOVEMENT (PRIMERO)
+# 🔹 INVENTORY MOVEMENT
 # =========================================
 
 class InventoryMovement(models.Model):
@@ -60,7 +60,11 @@ class Sale(models.Model):
 
     numero = models.CharField(max_length=20, unique=True, blank=True)
 
-    estado = models.CharField(max_length=20, choices=STATUS_CHOICES, default="draft")
+    estado = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default="draft"
+    )
 
     subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
     iva = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
@@ -71,10 +75,32 @@ class Sale(models.Model):
     class Meta:
         ordering = ["-fecha_creacion"]
 
+    def __str__(self):
+        return f"Venta {self.numero}"
+
+    # =========================================
+    # 🔹 NUMERACIÓN
+    # =========================================
+
     def generar_numero(self):
         ultimo = Sale.objects.aggregate(Max("id"))["id__max"]
         siguiente = (ultimo or 0) + 1
         return f"V{siguiente:04d}"
+
+    # =========================================
+    # 🔹 SAVE SIMPLE
+    # =========================================
+
+    def save(self, *args, **kwargs):
+
+        if not self.numero:
+            self.numero = self.generar_numero()
+
+        super().save(*args, **kwargs)
+
+    # =========================================
+    # 🔹 CALCULAR TOTALES
+    # =========================================
 
     def calcular_totales(self):
         items = self.items.all()
@@ -88,88 +114,90 @@ class Sale(models.Model):
 
         super().save(update_fields=["subtotal", "iva", "total"])
 
-    def save(self, *args, **kwargs):
+    # =========================================
+    # 🔹 CONFIRMAR VENTA
+    # =========================================
+
+    def confirm(self):
+
+        if self.estado != "draft":
+            raise ValidationError("Solo ventas en draft pueden confirmarse")
 
         with transaction.atomic():
 
-            es_nueva = self.pk is None
+            # Validar stock primero
+            for item in self.items.all():
 
-            if es_nueva and not self.numero:
-                self.numero = self.generar_numero()
+                inventario = Inventory.objects.filter(
+                    product=item.product,
+                    bin=item.bin
+                ).first()
 
-            if self.pk:
-                venta_original = Sale.objects.get(pk=self.pk)
-            else:
-                venta_original = None
-
-            super().save(*args, **kwargs)
-
-            if (
-                self.estado == "confirmed"
-                and (not venta_original or venta_original.estado != "confirmed")
-            ):
-
-                for item in self.items.all():
-
-                    inventario = Inventory.objects.filter(
-                        product=item.product,
-                        bin=item.bin
-                    ).first()
-
-                    if not inventario:
-                        raise ValidationError(
-                            f"No existe inventario para {item.product.nombre}"
-                        )
-
-                    if inventario.cantidad < item.cantidad:
-                        raise ValidationError(
-                            f"Stock insuficiente para {item.product.nombre}"
-                        )
-
-                for item in self.items.all():
-
-                    inventario = Inventory.objects.get(
-                        product=item.product,
-                        bin=item.bin
+                if not inventario:
+                    raise ValidationError(
+                        f"No existe inventario para {item.product.nombre}"
                     )
 
-                    inventario.cantidad -= item.cantidad
-                    inventario.save()
-
-                    InventoryMovement.objects.create(
-                        product=item.product,
-                        bin=item.bin,
-                        tipo="out",
-                        cantidad=item.cantidad,
-                        referencia=self.numero
+                if inventario.cantidad < item.cantidad:
+                    raise ValidationError(
+                        f"Stock insuficiente para {item.product.nombre}"
                     )
 
-            if (
-                self.estado == "cancelled"
-                and venta_original
-                and venta_original.estado in ["confirmed", "paid"]
-            ):
+            # Descontar stock
+            for item in self.items.all():
 
-                for item in self.items.all():
+                inventario = Inventory.objects.get(
+                    product=item.product,
+                    bin=item.bin
+                )
 
-                    inventario = Inventory.objects.get(
-                        product=item.product,
-                        bin=item.bin
-                    )
+                inventario.cantidad -= item.cantidad
+                inventario.save()
 
-                    inventario.cantidad += item.cantidad
-                    inventario.save()
+                InventoryMovement.objects.create(
+                    product=item.product,
+                    bin=item.bin,
+                    tipo="out",
+                    cantidad=item.cantidad,
+                    referencia=self.numero
+                )
 
-                    InventoryMovement.objects.create(
-                        product=item.product,
-                        bin=item.bin,
-                        tipo="in",
-                        cantidad=item.cantidad,
-                        referencia=f"Cancelación {self.numero}"
-                    )
+            self.estado = "confirmed"
+            self.save(update_fields=["estado"])
 
-    def __str__(self):
-        return f"Venta {self.numero}"
+    # =========================================
+    # 🔹 CANCELAR VENTA
+    # =========================================
+
+    def cancel(self):
+
+        if self.estado not in ["confirmed", "paid"]:
+            raise ValidationError(
+                "Solo ventas confirmadas o pagadas pueden cancelarse"
+            )
+
+        with transaction.atomic():
+
+            for item in self.items.all():
+
+                inventario = Inventory.objects.get(
+                    product=item.product,
+                    bin=item.bin
+                )
+
+                inventario.cantidad += item.cantidad
+                inventario.save()
+
+                InventoryMovement.objects.create(
+                    product=item.product,
+                    bin=item.bin,
+                    tipo="in",
+                    cantidad=item.cantidad,
+                    referencia=f"Cancelación {self.numero}"
+                )
+
+            self.estado = "cancelled"
+            self.save(update_fields=["estado"])
 
 
 # =========================================
