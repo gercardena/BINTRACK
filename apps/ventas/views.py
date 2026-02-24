@@ -5,6 +5,9 @@ from django.core.exceptions import ValidationError
 
 from .models import Sale
 from .serializers import SaleSerializer
+from .models import SaleItem
+from .serializers import SaleItemSerializer
+
 
 
 class SaleViewSet(viewsets.ModelViewSet):
@@ -44,3 +47,19 @@ class SaleViewSet(viewsets.ModelViewSet):
                 {"error": str(e)},
                 status=status.HTTP_400_BAD_REQUEST
             )
+        
+class SaleItemViewSet(viewsets.ModelViewSet):
+    queryset = SaleItem.objects.all()
+    serializer_class = SaleItemSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def perform_create(self, serializer):
+        sale = serializer.validated_data["sale"]
+
+        # 🔒 Solo permitir agregar items si la venta está en draft
+        if sale.estado != "draft":
+            raise ValidationError(
+                "No se pueden agregar items a una venta confirmada"
+            )
+
+        serializer.save()
