@@ -87,10 +87,6 @@ class Sale(models.Model):
         siguiente = (ultimo or 0) + 1
         return f"V{siguiente:04d}"
 
-    # =========================================
-    # 🔹 SAVE SIMPLE
-    # =========================================
-
     def save(self, *args, **kwargs):
 
         if not self.numero:
@@ -125,7 +121,6 @@ class Sale(models.Model):
 
         with transaction.atomic():
 
-            # Validar stock primero
             for item in self.items.all():
 
                 inventario = Inventory.objects.filter(
@@ -143,7 +138,6 @@ class Sale(models.Model):
                         f"Stock insuficiente para {item.product.nombre}"
                     )
 
-            # Descontar stock
             for item in self.items.all():
 
                 inventario = Inventory.objects.get(
@@ -164,6 +158,20 @@ class Sale(models.Model):
 
             self.estado = "confirmed"
             self.save(update_fields=["estado"])
+
+    # =========================================
+    # 🔹 PAGAR VENTA
+    # =========================================
+
+    def pay(self):
+
+        if self.estado != "confirmed":
+            raise ValidationError(
+                "Solo ventas confirmadas pueden marcarse como pagadas"
+            )
+
+        self.estado = "paid"
+        self.save(update_fields=["estado"])
 
     # =========================================
     # 🔹 CANCELAR VENTA
