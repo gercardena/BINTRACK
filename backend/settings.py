@@ -71,6 +71,7 @@ INSTALLED_APPS = [
     'apps.bins',
     'apps.ventas.apps.VentasConfig',
     'apps.payments.apps.PaymentsConfig',
+    "apps.clientes",
 ]
 
 AUTH_USER_MODEL = 'accounts.User'

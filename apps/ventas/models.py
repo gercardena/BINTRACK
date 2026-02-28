@@ -52,9 +52,17 @@ class Sale(models.Model):
         ("cancelled", "Cancelada"),
     ]
 
+    # Usuario que crea la venta
     usuario = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
+        related_name="sales"
+    )
+
+    # Cliente de la venta
+    cliente = models.ForeignKey(
+        "clientes.Client",
+        on_delete=models.PROTECT,
         related_name="sales"
     )
 
@@ -66,9 +74,26 @@ class Sale(models.Model):
         default="draft"
     )
 
-    subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
-    iva = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
-    total = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    # Facturación opcional
+    facturada = models.BooleanField(default=False)
+
+    subtotal = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("0.00")
+    )
+
+    iva = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("0.00")
+    )
+
+    total = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("0.00")
+    )
 
     fecha_creacion = models.DateTimeField(auto_now_add=True)
 
@@ -79,7 +104,7 @@ class Sale(models.Model):
         return f"Venta {self.numero}"
 
     # =========================================
-    # 🔹 NUMERACIÓN
+    # 🔹 NUMERACIÓN AUTOMÁTICA
     # =========================================
 
     def generar_numero(self):
@@ -121,6 +146,7 @@ class Sale(models.Model):
 
         with transaction.atomic():
 
+            # Validar stock
             for item in self.items.all():
 
                 inventario = Inventory.objects.filter(
@@ -138,6 +164,7 @@ class Sale(models.Model):
                         f"Stock insuficiente para {item.product.nombre}"
                     )
 
+            # Descontar stock
             for item in self.items.all():
 
                 inventario = Inventory.objects.get(
@@ -224,7 +251,11 @@ class SaleItem(models.Model):
     bin = models.ForeignKey("bins.BinType", on_delete=models.CASCADE)
 
     cantidad = models.PositiveIntegerField()
-    precio_unitario = models.DecimalField(max_digits=10, decimal_places=2)
+
+    precio_unitario = models.DecimalField(
+        max_digits=10,
+        decimal_places=2
+    )
 
     subtotal = models.DecimalField(
         max_digits=12,
