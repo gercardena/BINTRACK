@@ -72,6 +72,7 @@ INSTALLED_APPS = [
     'apps.ventas.apps.VentasConfig',
     'apps.payments.apps.PaymentsConfig',
     "apps.clientes",
+    "apps.facturas",
 ]
 
 AUTH_USER_MODEL = 'accounts.User'
