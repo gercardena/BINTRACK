@@ -1,11 +1,11 @@
 from rest_framework import viewsets, status
-from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.decorators import action
 from django.db import transaction
 
+from apps.ventas.models import Sale
 from .models import Factura
 from .serializers import FacturaSerializer
-from apps.ventas.models import Sale
 
 
 class FacturaViewSet(viewsets.ModelViewSet):
@@ -17,16 +17,31 @@ class FacturaViewSet(viewsets.ModelViewSet):
 
         sale = Sale.objects.get(pk=pk)
 
-        # Validaciones
+        # 1️⃣ Debe estar pagada
         if sale.estado != "paid":
             return Response(
                 {"error": "Solo se puede facturar una venta pagada."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # 2️⃣ No debe estar ya facturada
         if sale.facturada:
             return Response(
                 {"error": "Esta venta ya está facturada."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # 3️⃣ Debe tener items
+        if not sale.items.exists():
+            return Response(
+                {"error": "No se puede facturar una venta sin items."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # 4️⃣ Total debe ser mayor a 0
+        if sale.total <= 0:
+            return Response(
+                {"error": "No se puede facturar una venta con total 0."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
