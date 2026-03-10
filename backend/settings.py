@@ -73,6 +73,7 @@ INSTALLED_APPS = [
     'apps.payments.apps.PaymentsConfig',
     "apps.clientes",
     "apps.facturas",
+    'apps.pagos',
 ]
 
 AUTH_USER_MODEL = 'accounts.User'
