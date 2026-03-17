@@ -3,16 +3,34 @@ from django.conf import settings
 
 
 # -------------------------------
-# Tipo de envase
+# Tipo de envase (ANTES BinType)
 # -------------------------------
 class BinType(models.Model):
 
+    TIPO_CHOICES = [
+        ("BIN", "Bin"),
+        ("PALLET", "Pallet"),
+        ("CAJA", "Caja"),
+    ]
+
     nombre = models.CharField(max_length=100)
+
+    # 👇 NUEVO CAMPO (NO rompe nada)
+    tipo = models.CharField(
+        max_length=10,
+        choices=TIPO_CHOICES,
+        default="BIN"
+    )
+
     material = models.CharField(max_length=50)
-    valor_deposito = models.DecimalField(max_digits=10, decimal_places=2)
+
+    valor_deposito = models.DecimalField(
+        max_digits=10,
+        decimal_places=2
+    )
 
     def __str__(self):
-        return self.nombre
+        return f"{self.nombre} ({self.tipo})"
 
 
 # -------------------------------
@@ -26,14 +44,18 @@ class Cliente(models.Model):
     )
 
     nombre = models.CharField(max_length=150)
-    telefono = models.CharField(max_length=20, blank=True)
+
+    telefono = models.CharField(
+        max_length=20,
+        blank=True
+    )
 
     def __str__(self):
         return f"{self.nombre} ({self.usuario})"
 
 
 # -------------------------------
-# Movimiento de bins
+# Movimiento de envases
 # -------------------------------
 class BinMovement(models.Model):
 
@@ -56,6 +78,7 @@ class BinMovement(models.Model):
         blank=True
     )
 
+    # 👇 Sigue funcionando igual, pero ahora apunta a cualquier tipo de envase
     bin_type = models.ForeignKey(
         BinType,
         on_delete=models.CASCADE
