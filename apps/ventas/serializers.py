@@ -2,25 +2,62 @@ from rest_framework import serializers
 from .models import Sale, SaleItem
 
 
+# =========================================
+# 🔹 SALE ITEM SERIALIZER
+# =========================================
+
 class SaleItemSerializer(serializers.ModelSerializer):
+
+    product_nombre = serializers.CharField(
+        source="product.nombre",
+        read_only=True
+    )
+
+    bin_nombre = serializers.CharField(
+        source="bin.nombre",
+        read_only=True
+    )
+
     class Meta:
         model = SaleItem
-        fields = "__all__"
-        read_only_fields = ["subtotal"]
+        fields = [
+            "id",
+            "product",
+            "product_nombre",
+            "bin",
+            "bin_nombre",
+            "cantidad",
+            "bins_cantidad",   # 🔥 CLAVE
+            "precio_unitario",
+            "subtotal",
+        ]
 
+
+# =========================================
+# 🔹 SALE SERIALIZER
+# =========================================
 
 class SaleSerializer(serializers.ModelSerializer):
+
     items = SaleItemSerializer(many=True, read_only=True)
+
+    cliente_nombre = serializers.CharField(
+        source="cliente.nombre",
+        read_only=True
+    )
 
     class Meta:
         model = Sale
-        fields = "__all__"
-        read_only_fields = [
-            "usuario",
+        fields = [
+            "id",
             "numero",
             "estado",
+            "cliente",
+            "cliente_nombre",
             "subtotal",
             "iva",
             "total",
+            "items",
             "fecha_creacion",
         ]
+        

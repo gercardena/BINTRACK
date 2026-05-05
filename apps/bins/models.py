@@ -15,7 +15,6 @@ class BinType(models.Model):
 
     nombre = models.CharField(max_length=100)
 
-    # 👇 NUEVO CAMPO (NO rompe nada)
     tipo = models.CharField(
         max_length=10,
         choices=TIPO_CHOICES,
@@ -78,7 +77,6 @@ class BinMovement(models.Model):
         blank=True
     )
 
-    # 👇 Sigue funcionando igual, pero ahora apunta a cualquier tipo de envase
     bin_type = models.ForeignKey(
         BinType,
         on_delete=models.CASCADE
@@ -97,7 +95,15 @@ class BinMovement(models.Model):
         default=0
     )
 
+    # 🔥 NUEVO CAMPO (PASO 4)
+    referencia = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True
+    )
+
     fecha = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.tipo_movimiento} - {self.bin_type} ({self.cantidad})"
+        ref = f" | Ref: {self.referencia}" if self.referencia else ""
+        return f"{self.tipo_movimiento} - {self.bin_type} ({self.cantidad}){ref}"

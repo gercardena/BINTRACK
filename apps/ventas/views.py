@@ -20,7 +20,9 @@ class SaleViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return Sale.objects.filter(usuario=self.request.user)
+        return Sale.objects.filter(
+           usuario=self.request.user
+    ).select_related("cliente").prefetch_related("items__product")
 
     def perform_create(self, serializer):
         serializer.save(usuario=self.request.user)
