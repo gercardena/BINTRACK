@@ -1,4 +1,4 @@
-from rest_framework.generics import ListAPIView
+from rest_framework.generics import ListCreateAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import generics
 
@@ -14,12 +14,15 @@ from .serializers import (
     BinMovementSerializer,
     BinBalanceSerializer
 )
+
 from decimal import Decimal
+
 
 # -------------------------------------
 # Tipos de envase
+# GET + POST
 # -------------------------------------
-class BinTypeListView(ListAPIView):
+class BinTypeListView(ListCreateAPIView):
 
     permission_classes = [IsAuthenticated]
     serializer_class = BinTypeSerializer
@@ -29,9 +32,10 @@ class BinTypeListView(ListAPIView):
 
 
 # -------------------------------------
-# Clientes
+# Clientes bins
+# GET + POST
 # -------------------------------------
-class ClienteListView(generics.ListAPIView):
+class ClienteListView(ListCreateAPIView):
 
     serializer_class = ClienteSerializer
     permission_classes = [IsAuthenticated]
@@ -39,11 +43,15 @@ class ClienteListView(generics.ListAPIView):
     def get_queryset(self):
         return Cliente.objects.filter(usuario=self.request.user)
 
+    def perform_create(self, serializer):
+        serializer.save(usuario=self.request.user)
+
 
 # -------------------------------------
 # Movimientos
+# GET + POST
 # -------------------------------------
-class BinMovementListView(generics.ListAPIView):
+class BinMovementListView(ListCreateAPIView):
 
     serializer_class = BinMovementSerializer
     permission_classes = [IsAuthenticated]
@@ -51,9 +59,12 @@ class BinMovementListView(generics.ListAPIView):
     def get_queryset(self):
         return BinMovement.objects.filter(usuario=self.request.user)
 
+    def perform_create(self, serializer):
+        serializer.save(usuario=self.request.user)
+
 
 # -------------------------------------
-# 🔥 NUEVO: Balance por cliente
+# Balance por cliente
 # -------------------------------------
 class BinBalanceView(APIView):
 
@@ -85,11 +96,13 @@ class BinBalanceView(APIView):
 
             saldo = entregados - devueltos
 
-            # 🔹 DEPÓSITO (simple)
+            # 🔹 DEPÓSITO
             deposito_total = Decimal("0.00")
 
             for m in movimientos:
-                deposito_total += m.cantidad * m.bin_type.valor_deposito
+                deposito_total += (
+                    m.cantidad * m.bin_type.valor_deposito
+                )
 
             data = {
                 "cliente_id": cliente.id,
@@ -101,6 +114,7 @@ class BinBalanceView(APIView):
             }
 
             serializer = BinBalanceSerializer(data)
+
             resultado.append(serializer.data)
 
         return Response(resultado)

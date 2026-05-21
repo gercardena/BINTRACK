@@ -21,6 +21,9 @@ class ClienteSerializer(serializers.ModelSerializer):
         model = Cliente
         fields = "__all__"
 
+        # 🔥 usuario automático
+        read_only_fields = ["usuario"]
+
 
 # -------------------------------------
 # Movimientos
@@ -31,9 +34,12 @@ class BinMovementSerializer(serializers.ModelSerializer):
         model = BinMovement
         fields = "__all__"
 
+        # 🔥 usuario automático
+        read_only_fields = ["usuario"]
+
 
 # -------------------------------------
-# 🔥 NUEVO: Balance por cliente
+# Balance por cliente
 # -------------------------------------
 class BinBalanceSerializer(serializers.Serializer):
 

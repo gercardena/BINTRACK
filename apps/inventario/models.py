@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+
 from apps.productos.models import Product
 
 
@@ -23,15 +24,26 @@ class Inventory(models.Model):
         related_name="inventories"
     )
 
-    cantidad = models.PositiveIntegerField(default=0)
+    cantidad = models.IntegerField(default=0)
 
     fecha_creacion = models.DateTimeField(auto_now_add=True)
+
     fecha_actualizacion = models.DateTimeField(auto_now=True)
 
     class Meta:
-        unique_together = ("product", "bin")
+
+        # 🔥 MULTIUSUARIO REAL
+        unique_together = ("usuario", "product", "bin")
+
         verbose_name = "Inventory"
+
         verbose_name_plural = "Inventories"
 
     def __str__(self):
-        return f"{self.product.nombre} - {self.bin.nombre} ({self.cantidad})"
+
+        return (
+            f"{self.usuario} | "
+            f"{self.product.nombre} | "
+            f"{self.bin.nombre} | "
+            f"{self.cantidad}"
+        )
