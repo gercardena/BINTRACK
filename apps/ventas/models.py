@@ -6,7 +6,7 @@ from decimal import Decimal
 
 from apps.productos.models import Product
 from apps.inventario.models import Inventory
-from apps.bins.models import BinMovement
+from apps.bins.models import BinMovement, BinType
 
 
 IVA_RATE = Decimal("0.19")

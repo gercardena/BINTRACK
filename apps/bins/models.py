@@ -3,8 +3,9 @@ from django.conf import settings
 
 
 # -------------------------------
-# Tipo de envase (ANTES BinType)
+# Tipo de envase
 # -------------------------------
+
 class BinType(models.Model):
 
     TIPO_CHOICES = [
@@ -33,29 +34,9 @@ class BinType(models.Model):
 
 
 # -------------------------------
-# Cliente (por usuario/bodega)
+# Movimiento de bins
 # -------------------------------
-class Cliente(models.Model):
 
-    usuario = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE
-    )
-
-    nombre = models.CharField(max_length=150)
-
-    telefono = models.CharField(
-        max_length=20,
-        blank=True
-    )
-
-    def __str__(self):
-        return f"{self.nombre} ({self.usuario})"
-
-
-# -------------------------------
-# Movimiento de envases
-# -------------------------------
 class BinMovement(models.Model):
 
     MOVIMIENTO_CHOICES = [
@@ -71,7 +52,7 @@ class BinMovement(models.Model):
     )
 
     cliente = models.ForeignKey(
-        Cliente,
+        "clientes.Client",
         on_delete=models.SET_NULL,
         null=True,
         blank=True
@@ -95,15 +76,15 @@ class BinMovement(models.Model):
         default=0
     )
 
-    # 🔥 NUEVO CAMPO (PASO 4)
     referencia = models.CharField(
         max_length=50,
         null=True,
         blank=True
     )
 
-    fecha = models.DateTimeField(auto_now_add=True)
+    fecha = models.DateTimeField(
+        auto_now_add=True
+    )
 
     def __str__(self):
-        ref = f" | Ref: {self.referencia}" if self.referencia else ""
-        return f"{self.tipo_movimiento} - {self.bin_type} ({self.cantidad}){ref}"
+        return f"{self.tipo_movimiento} - {self.bin_type}"

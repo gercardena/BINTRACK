@@ -1,6 +1,7 @@
 from django.contrib import admin
-from .models import BinType, Cliente, BinMovement
+
+from .models import BinType, BinMovement
+
 
 admin.site.register(BinType)
-admin.site.register(Cliente)
 admin.site.register(BinMovement)

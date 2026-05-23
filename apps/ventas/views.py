@@ -1,4 +1,4 @@
-from rest_framework import viewsets, permissions, status
+from rest_framework import viewsets, permissions
 from django.utils import timezone
 from django.db.models import Sum
 from rest_framework.decorators import action
@@ -20,30 +20,56 @@ class SaleViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+
         return Sale.objects.filter(
-           usuario=self.request.user
-    ).select_related("cliente").prefetch_related("items__product")
+            usuario=self.request.user
+        ).select_related(
+            "cliente"
+        ).prefetch_related(
+            "items__product"
+        )
 
     def perform_create(self, serializer):
-        serializer.save(usuario=self.request.user)
 
-    # 🔒 BLOQUEAR UPDATE
+        serializer.save(
+            usuario=self.request.user
+        )
+
+    # ==========================
+    # BLOQUEAR UPDATE
+    # ==========================
+
     def update(self, request, *args, **kwargs):
+
         sale = self.get_object()
+
         if sale.estado != "draft":
-            raise ValidationError("No se puede modificar una venta no draft")
+            raise ValidationError(
+                "No se puede modificar una venta no draft"
+            )
+
         return super().update(request, *args, **kwargs)
 
     def partial_update(self, request, *args, **kwargs):
+
         sale = self.get_object()
+
         if sale.estado != "draft":
-            raise ValidationError("No se puede modificar una venta no draft")
+            raise ValidationError(
+                "No se puede modificar una venta no draft"
+            )
+
         return super().partial_update(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
+
         sale = self.get_object()
+
         if sale.estado != "draft":
-            raise ValidationError("No se puede eliminar una venta no draft")
+            raise ValidationError(
+                "No se puede eliminar una venta no draft"
+            )
+
         return super().destroy(request, *args, **kwargs)
 
     # ==========================
@@ -57,11 +83,26 @@ class SaleViewSet(viewsets.ModelViewSet):
         sale = self.get_object()
 
         try:
-            sale.confirm()
-        except Exception as e:
-            return Response({"error": str(e)}, status=400)
 
-        return Response(self.get_serializer(sale).data)
+            sale.confirm()
+
+        except Exception as e:
+
+            print("===================================")
+            print("CONFIRM ERROR:")
+            print(str(e))
+            print("===================================")
+
+            return Response(
+                {
+                    "error": str(e)
+                },
+                status=400
+            )
+
+        return Response(
+            self.get_serializer(sale).data
+        )
 
     # ==========================
     # PAY
@@ -74,11 +115,21 @@ class SaleViewSet(viewsets.ModelViewSet):
         sale = self.get_object()
 
         try:
-            sale.pay()
-        except Exception as e:
-            return Response({"error": str(e)}, status=400)
 
-        return Response(self.get_serializer(sale).data)
+            sale.pay()
+
+        except Exception as e:
+
+            return Response(
+                {
+                    "error": str(e)
+                },
+                status=400
+            )
+
+        return Response(
+            self.get_serializer(sale).data
+        )
 
     # ==========================
     # CANCEL
@@ -91,11 +142,21 @@ class SaleViewSet(viewsets.ModelViewSet):
         sale = self.get_object()
 
         try:
-            sale.cancel()
-        except Exception as e:
-            return Response({"error": str(e)}, status=400)
 
-        return Response(self.get_serializer(sale).data)
+            sale.cancel()
+
+        except Exception as e:
+
+            return Response(
+                {
+                    "error": str(e)
+                },
+                status=400
+            )
+
+        return Response(
+            self.get_serializer(sale).data
+        )
 
     # ==========================
     # DASHBOARD
@@ -105,10 +166,14 @@ class SaleViewSet(viewsets.ModelViewSet):
     def dashboard(self, request):
 
         user = request.user
+
         hoy = timezone.now().date()
+
         inicio_mes = hoy.replace(day=1)
 
-        ventas = Sale.objects.filter(usuario=user)
+        ventas = Sale.objects.filter(
+            usuario=user
+        )
 
         ventas_hoy = ventas.filter(
             fecha_creacion__date=hoy,
@@ -121,14 +186,40 @@ class SaleViewSet(viewsets.ModelViewSet):
         )
 
         data = {
+
             "ventas_hoy": ventas_hoy.count(),
-            "ingresos_hoy": ventas_hoy.aggregate(total=Sum("total"))["total"] or 0,
+
+            "ingresos_hoy":
+                ventas_hoy.aggregate(
+                    total=Sum("total")
+                )["total"] or 0,
+
             "ventas_mes": ventas_mes.count(),
-            "ingresos_mes": ventas_mes.aggregate(total=Sum("total"))["total"] or 0,
-            "ventas_confirmadas": ventas.filter(estado="confirmed").count(),
-            "ventas_pagadas": ventas.filter(estado="paid").count(),
-            "ventas_draft": ventas.filter(estado="draft").count(),
-            "ventas_canceladas": ventas.filter(estado="cancelled").count(),
+
+            "ingresos_mes":
+                ventas_mes.aggregate(
+                    total=Sum("total")
+                )["total"] or 0,
+
+            "ventas_confirmadas":
+                ventas.filter(
+                    estado="confirmed"
+                ).count(),
+
+            "ventas_pagadas":
+                ventas.filter(
+                    estado="paid"
+                ).count(),
+
+            "ventas_draft":
+                ventas.filter(
+                    estado="draft"
+                ).count(),
+
+            "ventas_canceladas":
+                ventas.filter(
+                    estado="cancelled"
+                ).count(),
         }
 
         return Response(data)
@@ -141,29 +232,67 @@ class SaleViewSet(viewsets.ModelViewSet):
 class SaleItemViewSet(viewsets.ModelViewSet):
 
     queryset = SaleItem.objects.all()
+
     serializer_class = SaleItemSerializer
+
     permission_classes = [permissions.IsAuthenticated]
 
+    # ==========================
+    # CREAR ITEM
+    # ==========================
+
     def perform_create(self, serializer):
+
         sale = serializer.validated_data["sale"]
+
         if sale.estado != "draft":
-            raise ValidationError("No se pueden agregar items a venta no draft")
+
+            raise ValidationError(
+                "No se pueden agregar items a venta no draft"
+            )
+
         serializer.save()
 
+    # ==========================
+    # UPDATE ITEM
+    # ==========================
+
     def update(self, request, *args, **kwargs):
+
         item = self.get_object()
+
         if item.sale.estado != "draft":
-            raise ValidationError("No se puede modificar items")
+
+            raise ValidationError(
+                "No se puede modificar items"
+            )
+
         return super().update(request, *args, **kwargs)
 
     def partial_update(self, request, *args, **kwargs):
+
         item = self.get_object()
+
         if item.sale.estado != "draft":
-            raise ValidationError("No se puede modificar items")
+
+            raise ValidationError(
+                "No se puede modificar items"
+            )
+
         return super().partial_update(request, *args, **kwargs)
 
+    # ==========================
+    # DELETE ITEM
+    # ==========================
+
     def destroy(self, request, *args, **kwargs):
+
         item = self.get_object()
+
         if item.sale.estado != "draft":
-            raise ValidationError("No se puede eliminar items")
+
+            raise ValidationError(
+                "No se puede eliminar items"
+            )
+
         return super().destroy(request, *args, **kwargs)
