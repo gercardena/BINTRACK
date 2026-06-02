@@ -41,14 +41,12 @@ class ClienteListView(ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Client.objects.filter(
-            usuario=self.request.user
-        )
+
+        return Client.objects.all()
 
     def perform_create(self, serializer):
-        serializer.save(
-            usuario=self.request.user
-        )
+
+        serializer.save()
 
 
 # -------------------------------------
@@ -61,11 +59,13 @@ class BinMovementListView(ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+
         return BinMovement.objects.filter(
             usuario=self.request.user
         )
 
     def perform_create(self, serializer):
+
         serializer.save(
             usuario=self.request.user
         )
@@ -82,9 +82,7 @@ class BinBalanceView(APIView):
 
         user = request.user
 
-        clientes = Client.objects.filter(
-            usuario=user
-        )
+        clientes = Client.objects.all()
 
         resultado = []
 
