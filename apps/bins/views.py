@@ -2,17 +2,20 @@ from decimal import Decimal
 
 from django.db.models import Sum
 
-from rest_framework.generics import ListCreateAPIView
+from rest_framework.generics import (
+    ListCreateAPIView,
+    RetrieveUpdateDestroyAPIView,
+)
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from .models import BinType, BinMovement
 from .serializers import (
     BinTypeSerializer,
     ClienteSerializer,
     BinMovementSerializer,
-    BinBalanceSerializer
+    BinBalanceSerializer,
 )
 
 from apps.clientes.models import Client
@@ -41,12 +44,23 @@ class ClienteListView(ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-
         return Client.objects.all()
 
     def perform_create(self, serializer):
-
         serializer.save()
+
+
+# -------------------------------------
+# Cliente detalle
+# GET + PUT + DELETE
+# -------------------------------------
+class ClienteDetailView(RetrieveUpdateDestroyAPIView):
+
+    serializer_class = ClienteSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Client.objects.all()
 
 
 # -------------------------------------
@@ -59,13 +73,11 @@ class BinMovementListView(ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-
         return BinMovement.objects.filter(
             usuario=self.request.user
         )
 
     def perform_create(self, serializer):
-
         serializer.save(
             usuario=self.request.user
         )
@@ -81,7 +93,6 @@ class BinBalanceView(APIView):
     def get(self, request):
 
         user = request.user
-
         clientes = Client.objects.all()
 
         resultado = []
@@ -110,7 +121,6 @@ class BinBalanceView(APIView):
             deposito_total = Decimal("0.00")
 
             for m in movimientos:
-
                 deposito_total += (
                     m.cantidad *
                     m.bin_type.valor_deposito
