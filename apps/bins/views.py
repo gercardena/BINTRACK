@@ -93,50 +93,67 @@ class BinBalanceView(APIView):
     def get(self, request):
 
         user = request.user
-        clientes = Client.objects.all()
 
         resultado = []
 
+        clientes = Client.objects.all()
+
         for cliente in clientes:
 
-            movimientos = BinMovement.objects.filter(
-                usuario=user,
-                cliente=cliente
-            )
+            bin_types = BinType.objects.all()
 
-            entregados = movimientos.filter(
-                tipo_movimiento="prestamo"
-            ).aggregate(
-                total=Sum("cantidad")
-            )["total"] or 0
+            for bin_type in bin_types:
 
-            devueltos = movimientos.filter(
-                tipo_movimiento="devolucion"
-            ).aggregate(
-                total=Sum("cantidad")
-            )["total"] or 0
-
-            saldo = entregados - devueltos
-
-            deposito_total = Decimal("0.00")
-
-            for m in movimientos:
-                deposito_total += (
-                    m.cantidad *
-                    m.bin_type.valor_deposito
+                movimientos = BinMovement.objects.filter(
+                    usuario=user,
+                    cliente=cliente,
+                    bin_type=bin_type
                 )
 
-            data = {
-                "cliente_id": cliente.id,
-                "cliente_nombre": cliente.nombre,
-                "entregados": entregados,
-                "devueltos": devueltos,
-                "saldo": saldo,
-                "deposito_pendiente": deposito_total,
-            }
+                if not movimientos.exists():
+                    continue
 
-            serializer = BinBalanceSerializer(data)
+                entregados = movimientos.filter(
+                    tipo_movimiento="prestamo"
+                ).aggregate(
+                    total=Sum("cantidad")
+                )["total"] or 0
 
-            resultado.append(serializer.data)
+                devueltos = movimientos.filter(
+                    tipo_movimiento="devolucion"
+                ).aggregate(
+                    total=Sum("cantidad")
+                )["total"] or 0
+
+                saldo = entregados - devueltos
+
+                deposito_pendiente = (
+                    saldo *
+                    bin_type.valor_deposito
+                )
+
+                data = {
+                    "cliente_id": cliente.id,
+                    "cliente_nombre": cliente.nombre,
+
+                    "bin_type_id": bin_type.id,
+                    "bin_nombre": bin_type.nombre,
+                    "valor_deposito": bin_type.valor_deposito,
+
+                    "entregados": entregados,
+                    "devueltos": devueltos,
+                    "saldo": saldo,
+
+                    "deposito_pendiente":
+                        deposito_pendiente,
+                }
+
+                serializer = BinBalanceSerializer(
+                    data
+                )
+
+                resultado.append(
+                    serializer.data
+                )
 
         return Response(resultado)

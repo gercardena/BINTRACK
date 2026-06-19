@@ -72,6 +72,15 @@ class BinBalanceSerializer(serializers.Serializer):
 
     cliente_nombre = serializers.CharField()
 
+    bin_type_id = serializers.IntegerField()
+
+    bin_nombre = serializers.CharField()
+
+    valor_deposito = serializers.DecimalField(
+        max_digits=12,
+        decimal_places=2
+    )
+
     entregados = serializers.IntegerField()
 
     devueltos = serializers.IntegerField()

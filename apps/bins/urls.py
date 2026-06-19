@@ -5,7 +5,7 @@ BinTypeListView,
 ClienteListView,
 ClienteDetailView,
 BinMovementListView,
-BinBalanceView
+BinBalanceView,
 )
 
 urlpatterns = [
