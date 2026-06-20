@@ -1,31 +1,14 @@
 from django.urls import path
 
-from .views import (
-    InventoryListView,
-    crear_inventario,
-    ajustar_stock,
-)
+from .views import InventoryView
+
 
 urlpatterns = [
 
-    # 🔹 LISTAR INVENTARIO
     path(
-        '',
-        InventoryListView.as_view(),
-        name='inventory-list'
+        "",
+        InventoryView.as_view(),
+        name="inventory",
     ),
 
-    # 🔥 CREAR INVENTARIO
-    path(
-        'crear/',
-        crear_inventario,
-        name='crear-inventario'
-    ),
-
-    # 🔥 AJUSTAR STOCK
-    path(
-        'ajustar/',
-        ajustar_stock,
-        name='ajustar-stock'
-    ),
 ]
