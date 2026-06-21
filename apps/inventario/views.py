@@ -1,6 +1,10 @@
 from django.db.models import Sum
 
 from rest_framework.views import APIView
+from rest_framework.generics import (
+    ListCreateAPIView,
+    RetrieveUpdateDestroyAPIView,
+)
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 
@@ -9,7 +13,8 @@ from apps.bins.models import (
     BinMovement,
 )
 
-from .serializers import InventorySerializer
+from .models import Inventory
+from .serializers import InventorySerializer, StockSerializer
 
 
 class InventoryView(APIView):
@@ -77,3 +82,32 @@ class InventoryView(APIView):
             resultado.append(serializer.data)
 
         return Response(resultado)
+
+
+# -------------------------------------
+# Stock real por producto + bin
+# GET + POST
+# -------------------------------------
+class StockListView(ListCreateAPIView):
+
+    serializer_class = StockSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Inventory.objects.filter(usuario=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(usuario=self.request.user)
+
+
+# -------------------------------------
+# Stock real - detalle
+# GET + PUT + DELETE
+# -------------------------------------
+class StockDetailView(RetrieveUpdateDestroyAPIView):
+
+    serializer_class = StockSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Inventory.objects.filter(usuario=self.request.user)
