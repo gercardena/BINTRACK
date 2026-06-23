@@ -1,7 +1,7 @@
 from django.db import models, transaction
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.db.models import Max
+from django.db.models import Max, Sum
 from decimal import Decimal
 
 from apps.productos.models import Product
@@ -127,72 +127,115 @@ class Sale(models.Model):
 
     def confirm(self):
 
-        if self.estado != "draft":
-            raise ValidationError("Solo ventas en draft pueden confirmarse")
+     with transaction.atomic():
 
-        if not self.items.exists():
-            raise ValidationError("La venta no tiene items")
+        # Bloquea la venta para evitar confirmarla dos veces.
+        sale = Sale.objects.select_for_update().get(
+            pk=self.pk
+        )
 
-        with transaction.atomic():
+        if sale.estado != "draft":
+            raise ValidationError(
+                "Solo ventas en draft pueden confirmarse"
+            )
 
-            # 🔍 VALIDAR STOCK
-            for item in self.items.all():
+        if not sale.items.exists():
+            raise ValidationError(
+                "La venta no tiene items"
+            )
 
-                inventario = Inventory.objects.filter(
-                    product=item.product,
-                    bin=item.bin,
-                    usuario=self.usuario
-                ).first()
+        # Agrupa artículos con el mismo producto y envase.
+        grupos = list(
+            sale.items.values(
+                "product_id",
+                "bin_id",
+            ).annotate(
+                cantidad_total=Sum("cantidad"),
+                bins_total=Sum("bins_cantidad"),
+            ).order_by(
+                "product_id",
+                "bin_id",
+            )
+        )
 
-                if not inventario:
-                    raise ValidationError(
-                        f"No existe inventario para {item.product.nombre}"
+        inventarios = {}
+
+        # Bloquea y valida todos los inventarios.
+        for grupo in grupos:
+
+            clave = (
+                grupo["product_id"],
+                grupo["bin_id"],
+            )
+
+            try:
+                inventario = (
+                    Inventory.objects
+                    .select_for_update()
+                    .select_related("product", "bin")
+                    .get(
+                        usuario=sale.usuario,
+                        product_id=grupo["product_id"],
+                        bin_id=grupo["bin_id"],
                     )
-
-                if inventario.cantidad < item.cantidad:
-                    raise ValidationError(
-                        f"Stock insuficiente para {item.product.nombre}"
-                    )
-
-            # 🔻 DESCONTAR STOCK
-            for item in self.items.all():
-
-                inventario = Inventory.objects.get(
-                    product=item.product,
-                    bin=item.bin,
-                    usuario=self.usuario
                 )
 
-                inventario.cantidad -= item.cantidad
-                inventario.save()
-
-                InventoryMovement.objects.create(
-                    product=item.product,
-                    bin=item.bin,
-                    tipo="out",
-                    cantidad=item.cantidad,
-                    referencia=self.numero
+            except Inventory.DoesNotExist:
+                raise ValidationError(
+                    "No existe inventario para uno "
+                    "de los productos seleccionados."
                 )
 
-            # 🔥 MOVIMIENTO DE BINS (PRÉSTAMO)
-            for item in self.items.all():
+            if inventario.cantidad < grupo["cantidad_total"]:
+                raise ValidationError(
+                    f"Stock insuficiente para "
+                    f"{inventario.product.nombre}. "
+                    f"Disponible: {inventario.cantidad}."
+                )
 
-                if item.bins_cantidad > 0:
+            inventarios[clave] = inventario
 
-                    BinMovement.objects.create(
-                        cliente=self.cliente,
-                        bin_type=item.bin,
-                        tipo_movimiento="prestamo",
-                        cantidad=item.bins_cantidad,
-                        deposito_pagado=(
-                            item.bin.valor_deposito * item.bins_cantidad
-                        ),
-                        usuario=self.usuario,
-                        referencia=self.numero  # 🔥 PASO 4 APLICADO
-                    )
+        # Descuenta stock y registra movimientos.
+        for grupo in grupos:
 
-            self.estado = "confirmed"
-            self.save(update_fields=["estado"])
+            clave = (
+                grupo["product_id"],
+                grupo["bin_id"],
+            )
+
+            inventario = inventarios[clave]
+
+            inventario.cantidad -= grupo["cantidad_total"]
+            inventario.save(update_fields=["cantidad"])
+
+            InventoryMovement.objects.create(
+                product_id=grupo["product_id"],
+                bin_id=grupo["bin_id"],
+                tipo="out",
+                cantidad=grupo["cantidad_total"],
+                referencia=sale.numero,
+            )
+
+            if grupo["bins_total"] > 0:
+
+                BinMovement.objects.create(
+                    cliente=sale.cliente,
+                    bin_type_id=grupo["bin_id"],
+                    tipo_movimiento="prestamo",
+                    cantidad=grupo["bins_total"],
+                    deposito_pagado=(
+                        inventario.bin.valor_deposito
+                        * grupo["bins_total"]
+                    ),
+                    usuario=sale.usuario,
+                    referencia=sale.numero,
+                )
+
+        sale.estado = "confirmed"
+        sale.save(update_fields=["estado"])
+
+        # Actualiza la instancia utilizada por el serializer.
+        self.estado = "confirmed"
 
     # =========================================
     # 🔹 PAGAR
@@ -296,8 +339,11 @@ class SaleItem(models.Model):
     def save(self, *args, **kwargs):
 
         # 🔥 PASO 3 APLICADO
-        if self.bins_cantidad > self.cantidad:
-            raise ValidationError("Bins no puede ser mayor que cantidad")
+        if self.bins_cantidad != self.cantidad:
+            raise ValidationError(
+                "La cantidad de envases debe ser igual "
+                "a la cantidad vendida."
+            )
 
         self.subtotal = self.cantidad * self.precio_unitario
         super().save(*args, **kwargs)

@@ -22,3 +22,42 @@ class Product(models.Model):
 
     def __str__(self):
         return self.nombre
+
+class ProductPresentation(models.Model):
+
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name="presentations",
+    )
+
+    bin_type = models.ForeignKey(
+        "bins.BinType",
+        on_delete=models.PROTECT,
+        related_name="product_presentations",
+    )
+
+    precio = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+    )
+
+    activo = models.BooleanField(default=True)
+
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["product", "bin_type"],
+                name="unique_product_bin_presentation",
+            )
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.product.nombre} - "
+            f"{self.bin_type.nombre} - "
+            f"${self.precio}"
+        )

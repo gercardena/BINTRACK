@@ -231,11 +231,18 @@ class SaleViewSet(viewsets.ModelViewSet):
 
 class SaleItemViewSet(viewsets.ModelViewSet):
 
-    queryset = SaleItem.objects.all()
-
     serializer_class = SaleItemSerializer
-
     permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+
+        return SaleItem.objects.filter(
+            sale__usuario=self.request.user
+        ).select_related(
+            "sale",
+            "product",
+            "bin",
+        )
 
     # ==========================
     # CREAR ITEM

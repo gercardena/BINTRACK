@@ -47,4 +47,3 @@ class UserSubscription(models.Model):
 
     def esta_vigente(self):
         return self.activa and timezone.now() < self.fecha_fin
-    

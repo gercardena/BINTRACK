@@ -24,7 +24,6 @@ class InventoryView(APIView):
     def get(self, request):
 
         user = request.user
-
         resultado = []
 
         bin_types = BinType.objects.all()
@@ -33,38 +32,50 @@ class InventoryView(APIView):
 
             movimientos = BinMovement.objects.filter(
                 usuario=user,
-                bin_type=bin_type
+                bin_type=bin_type,
             )
 
             entradas = movimientos.filter(
-                tipo_movimiento="entrada"
+                tipo_movimiento="entrada",
             ).aggregate(
-                total=Sum("cantidad")
+                total=Sum("cantidad"),
             )["total"] or 0
 
             prestamos = movimientos.filter(
-                tipo_movimiento="prestamo"
+                tipo_movimiento="prestamo",
             ).aggregate(
-                total=Sum("cantidad")
+                total=Sum("cantidad"),
             )["total"] or 0
 
             devoluciones = movimientos.filter(
-                tipo_movimiento="devolucion"
+                tipo_movimiento="devolucion",
             ).aggregate(
-                total=Sum("cantidad")
+                total=Sum("cantidad"),
             )["total"] or 0
 
             bajas = movimientos.filter(
-                tipo_movimiento="baja"
+                tipo_movimiento="baja",
             ).aggregate(
-                total=Sum("cantidad")
+                total=Sum("cantidad"),
             )["total"] or 0
 
+            # Bins llenos con productos disponibles para vender
+            llenos = Inventory.objects.filter(
+                usuario=user,
+                bin=bin_type,
+            ).aggregate(
+                total=Sum("cantidad"),
+            )["total"] or 0
+
+            # Bins que todavía permanecen con clientes
+            en_clientes = prestamos - devoluciones
+
+            # Bins vacíos disponibles para volver a cargar
             disponible = (
                 entradas
-                - prestamos
-                + devoluciones
                 - bajas
+                - en_clientes
+                - llenos
             )
 
             data = {
@@ -74,11 +85,12 @@ class InventoryView(APIView):
                 "prestamos": prestamos,
                 "devoluciones": devoluciones,
                 "bajas": bajas,
+                "en_clientes": en_clientes,
+                "llenos": llenos,
                 "disponible": disponible,
             }
 
             serializer = InventorySerializer(data)
-
             resultado.append(serializer.data)
 
         return Response(resultado)
