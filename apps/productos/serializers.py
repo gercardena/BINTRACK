@@ -1,6 +1,6 @@
 from rest_framework import serializers
-from .models import Product, ProductPresentation
 
+from .models import Product, ProductPresentation
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -8,8 +8,12 @@ class ProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = "__all__"
-        read_only_fields = ["usuario"]  # 🔥 CLAVE
-class ProductPresentationSerializer(serializers.ModelSerializer):
+        read_only_fields = ["usuario"]
+
+
+class ProductPresentationSerializer(
+    serializers.ModelSerializer
+):
 
     product_nombre = serializers.CharField(
         source="product.nombre",
@@ -72,6 +76,48 @@ class ProductPresentationSerializer(serializers.ModelSerializer):
             "id": inventory.id,
             "cantidad": inventory.cantidad,
         }
+
+    def validate(self, attrs):
+
+        request = self.context.get("request")
+
+        product = attrs.get(
+            "product",
+            getattr(self.instance, "product", None),
+        )
+
+        bin_type = attrs.get(
+            "bin_type",
+            getattr(self.instance, "bin_type", None),
+        )
+
+        activo = attrs.get(
+            "activo",
+            getattr(self.instance, "activo", True),
+        )
+
+        if request and activo is False:
+
+            from apps.inventario.models import Inventory
+
+            cantidad = Inventory.objects.filter(
+                usuario=request.user,
+                product=product,
+                bin=bin_type,
+            ).values_list(
+                "cantidad",
+                flat=True,
+            ).first() or 0
+
+            if cantidad > 0:
+                raise serializers.ValidationError({
+                    "activo": (
+                        "No puedes desactivar una presentación "
+                        "que todavía tiene stock."
+                    )
+                })
+
+        return attrs
 
     def validate_product(self, product):
 
