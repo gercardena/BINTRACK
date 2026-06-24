@@ -257,49 +257,89 @@ class Sale(models.Model):
 
     def cancel(self):
 
-        if self.estado not in ["confirmed", "paid"]:
+     with transaction.atomic():
+
+        sale = (
+            Sale.objects
+            .select_for_update()
+            .get(pk=self.pk)
+        )
+
+        if sale.estado != "confirmed":
             raise ValidationError(
-                "Solo ventas confirmadas o pagadas pueden cancelarse"
+                "Solo ventas confirmadas pueden cancelarse"
             )
 
-        with transaction.atomic():
+        grupos = list(
+            sale.items.values(
+                "product_id",
+                "bin_id",
+            ).annotate(
+                cantidad_total=Sum("cantidad"),
+                bins_total=Sum("bins_cantidad"),
+            )
+        )
 
-            for item in self.items.all():
+        for grupo in grupos:
 
-                inventario = Inventory.objects.get(
-                    product=item.product,
-                    bin=item.bin,
-                    usuario=self.usuario
-                )
-
-                inventario.cantidad += item.cantidad
-                inventario.save()
-
-                InventoryMovement.objects.create(
-                    product=item.product,
-                    bin=item.bin,
-                    tipo="in",
-                    cantidad=item.cantidad,
-                    referencia=f"Cancelación {self.numero}"
-                )
-
-                # 🔥 DEVOLVER BINS
-                if item.bins_cantidad > 0:
-
-                    BinMovement.objects.create(
-                        cliente=self.cliente,
-                        bin_type=item.bin,
-                        tipo_movimiento="devolucion",
-                        cantidad=item.bins_cantidad,
-                        deposito_pagado=(
-                            item.bin.valor_deposito * item.bins_cantidad
-                        ),
-                        usuario=self.usuario,
-                        referencia=f"Cancelación {self.numero}"  # 🔥 también aquí
+            try:
+                inventario = (
+                    Inventory.objects
+                    .select_for_update()
+                    .select_related("bin")
+                    .get(
+                        usuario=sale.usuario,
+                        product_id=grupo["product_id"],
+                        bin_id=grupo["bin_id"],
                     )
+                )
 
-            self.estado = "cancelled"
-            self.save(update_fields=["estado"])
+            except Inventory.DoesNotExist:
+                raise ValidationError(
+                    "No existe el inventario requerido "
+                    "para cancelar la venta."
+                )
+
+            inventario.cantidad += (
+                grupo["cantidad_total"]
+            )
+
+            inventario.save(
+                update_fields=["cantidad"]
+            )
+
+            InventoryMovement.objects.create(
+                product_id=grupo["product_id"],
+                bin_id=grupo["bin_id"],
+                tipo="in",
+                cantidad=grupo["cantidad_total"],
+                referencia=f"Cancelación {sale.numero}",
+            )
+
+            if grupo["bins_total"] > 0:
+
+                BinMovement.objects.create(
+                    cliente=sale.cliente,
+                    bin_type_id=grupo["bin_id"],
+                    tipo_movimiento="devolucion",
+                    cantidad=grupo["bins_total"],
+                    deposito_pagado=(
+                        inventario.bin.valor_deposito
+                        * grupo["bins_total"]
+                    ),
+                    usuario=sale.usuario,
+                    referencia=(
+                        f"Cancelación {sale.numero}"
+                    ),
+                )
+
+        sale.estado = "cancelled"
+
+        sale.save(
+            update_fields=["estado"]
+        )
+
+        self.estado = "cancelled"
 
 
 # =========================================
