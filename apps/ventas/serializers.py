@@ -5,10 +5,6 @@ from apps.productos.models import ProductPresentation
 from .models import Sale, SaleItem
 
 
-# =========================================
-# SALE ITEM SERIALIZER
-# =========================================
-
 class SaleItemSerializer(serializers.ModelSerializer):
 
     product_nombre = serializers.CharField(
@@ -85,7 +81,9 @@ class SaleItemSerializer(serializers.ModelSerializer):
 
         if cantidad < 1:
             raise serializers.ValidationError({
-                "cantidad": "La cantidad debe ser mayor que cero."
+                "cantidad": (
+                    "La cantidad debe ser mayor que cero."
+                )
             })
 
         try:
@@ -103,16 +101,11 @@ class SaleItemSerializer(serializers.ModelSerializer):
                 )
             })
 
-        # El backend determina estos valores.
         attrs["precio_unitario"] = presentation.precio
         attrs["bins_cantidad"] = cantidad
 
         return attrs
 
-
-# =========================================
-# SALE SERIALIZER
-# =========================================
 
 class SaleSerializer(serializers.ModelSerializer):
 
@@ -141,3 +134,32 @@ class SaleSerializer(serializers.ModelSerializer):
             "items",
             "fecha_creacion",
         ]
+
+        read_only_fields = [
+            "numero",
+            "estado",
+            "subtotal",
+            "iva",
+            "total",
+            "fecha_creacion",
+        ]
+
+    def validate_cliente(self, cliente):
+
+        request = self.context.get("request")
+
+        if (
+            request
+            and cliente.usuario_id != request.user.id
+        ):
+            raise serializers.ValidationError(
+                "El cliente no pertenece al "
+                "usuario autenticado."
+            )
+
+        if not cliente.activo:
+            raise serializers.ValidationError(
+                "No se puede utilizar un cliente inactivo."
+            )
+
+        return cliente
