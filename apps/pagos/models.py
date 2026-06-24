@@ -1,5 +1,5 @@
 from django.db import models
-from apps.facturas.models import Factura
+
 
 class Pago(models.Model):
 
@@ -9,20 +9,37 @@ class Pago(models.Model):
         ("tarjeta", "Tarjeta"),
     ]
 
-    factura = models.ForeignKey(
-        Factura,
-        on_delete=models.CASCADE,
-        related_name="pagos"
+    sale = models.OneToOneField(
+        "ventas.Sale",
+        on_delete=models.PROTECT,
+        related_name="pago",
     )
 
-    monto = models.DecimalField(max_digits=10, decimal_places=2)
+    monto = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+    )
 
     metodo = models.CharField(
         max_length=20,
-        choices=METODO_CHOICES
+        choices=METODO_CHOICES,
     )
 
-    fecha = models.DateTimeField(auto_now_add=True)
+    referencia = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+    )
+
+    fecha = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    class Meta:
+        ordering = ["-fecha"]
 
     def __str__(self):
-        return f"Pago {self.id} - Factura {self.factura.id}"
+        return (
+            f"Pago {self.id} - "
+            f"Venta {self.sale.numero}"
+        )

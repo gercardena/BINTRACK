@@ -109,26 +109,16 @@ class SaleViewSet(viewsets.ModelViewSet):
     # ==========================
 
     @action(detail=True, methods=["post"])
-    @transaction.atomic
     def pay(self, request, pk=None):
 
-        sale = self.get_object()
-
-        try:
-
-            sale.pay()
-
-        except Exception as e:
-
-            return Response(
-                {
-                    "error": str(e)
-                },
-                status=400
-            )
-
         return Response(
-            self.get_serializer(sale).data
+            {
+                "error": (
+                    "El pago debe registrarse mediante "
+                    "el endpoint /api/pagos/."
+                )
+            },
+            status=400,
         )
 
     # ==========================
