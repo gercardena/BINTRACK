@@ -1,123 +1,134 @@
-from rest_framework import viewsets, status
-from rest_framework.response import Response
+from django.db import transaction
+from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
-
-from django.db import transaction
+from rest_framework.response import Response
 
 from apps.ventas.models import Sale
+
 from .models import Factura
 from .serializers import FacturaSerializer
 
 
-class FacturaViewSet(viewsets.ModelViewSet):
-
-    queryset = Factura.objects.all()
+class FacturaViewSet(
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    viewsets.GenericViewSet,
+):
 
     serializer_class = FacturaSerializer
-
     permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return (
+            Factura.objects
+            .filter(
+                sale__usuario=self.request.user,
+            )
+            .select_related(
+                "sale",
+                "sale__cliente",
+            )
+        )
 
     @action(detail=True, methods=["post"])
     def generar(self, request, pk=None):
 
-        try:
-            sale = Sale.objects.get(
-                pk=pk,
-                usuario=request.user
-            )
-
-        except Sale.DoesNotExist:
-
-            return Response(
-                {
-                    "error": "Venta no encontrada."
-                },
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        # =====================================
-        # VALIDAR ESTADO
-        # =====================================
-
-        if sale.estado != "paid":
-
-            return Response(
-                {
-                    "error": "Solo se puede facturar una venta pagada."
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # =====================================
-        # VALIDAR FACTURA EXISTENTE
-        # =====================================
-
-        if hasattr(sale, "factura"):
-
-            return Response(
-                {
-                    "error": "Esta venta ya está facturada."
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # =====================================
-        # VALIDAR ITEMS
-        # =====================================
-
-        if not sale.items.exists():
-
-            return Response(
-                {
-                    "error": "No se puede facturar una venta sin items."
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # =====================================
-        # VALIDAR TOTAL
-        # =====================================
-
-        if sale.total <= 0:
-
-            return Response(
-                {
-                    "error": "No se puede facturar una venta con total 0."
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # =====================================
-        # CREAR FACTURA
-        # =====================================
-
         with transaction.atomic():
 
-            numero = f"F{sale.id:04d}"
+            try:
+                sale = (
+                    Sale.objects
+                    .select_for_update()
+                    .select_related("cliente")
+                    .get(
+                        pk=pk,
+                        usuario=request.user,
+                    )
+                )
+
+            except Sale.DoesNotExist:
+                return Response(
+                    {
+                        "error": (
+                            "Venta no encontrada."
+                        )
+                    },
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            if sale.estado not in [
+                "confirmed",
+                "paid",
+            ]:
+                return Response(
+                    {
+                        "error": (
+                            "Solo se pueden facturar "
+                            "ventas confirmadas o pagadas."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            factura_existente = (
+                Factura.objects
+                .filter(sale=sale)
+                .first()
+            )
+
+            if factura_existente is not None:
+                serializer = self.get_serializer(
+                    factura_existente,
+                )
+
+                return Response(
+                    serializer.data,
+                    status=status.HTTP_200_OK,
+                )
+
+            if not sale.items.exists():
+                return Response(
+                    {
+                        "error": (
+                            "No se puede facturar "
+                            "una venta sin artículos."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if sale.total <= 0:
+                return Response(
+                    {
+                        "error": (
+                            "No se puede facturar "
+                            "una venta con total cero."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
             factura = Factura.objects.create(
-
                 sale=sale,
-
-                numero=numero,
-
-                cliente_nombre=sale.cliente.nombre,
-
+                numero=f"F{sale.id:04d}",
+                cliente_nombre=(
+                    sale.cliente.nombre
+                ),
                 cliente_rut=sale.cliente.rut,
-
-                cliente_direccion=sale.cliente.direccion,
-
+                cliente_direccion=(
+                    sale.cliente.direccion
+                ),
                 subtotal=sale.subtotal,
-
                 iva=sale.iva,
-
                 total=sale.total,
             )
 
-        serializer = self.get_serializer(factura)
+        serializer = self.get_serializer(
+            factura,
+        )
 
         return Response(
             serializer.data,
-            status=status.HTTP_201_CREATED
+            status=status.HTTP_201_CREATED,
         )
