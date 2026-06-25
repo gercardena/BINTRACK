@@ -16,7 +16,6 @@ class Client(models.Model):
 
     rut = models.CharField(
         max_length=20,
-        unique=True,
     )
 
     email = models.EmailField(
@@ -46,6 +45,12 @@ class Client(models.Model):
 
     class Meta:
         ordering = ["nombre"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["usuario", "rut"],
+                name="unique_client_rut_per_user",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.nombre} ({self.rut})"
