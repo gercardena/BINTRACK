@@ -17,3 +17,7 @@ __pycache__/
 
 # Config VS Code
 .vscode/
+# Backups locales de base de datos
+*.backup
+*.dump
+*.sql
