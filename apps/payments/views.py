@@ -1,24 +1,19 @@
 from django.conf import settings
 from django.shortcuts import get_object_or_404
+from django.views.decorators.csrf import csrf_exempt
 
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-
-from django.views.decorators.csrf import csrf_exempt
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from .models import Payment
 from .services.mercadopago import MercadoPagoService
 
-from accounts.services.subscriptions import activate_subscription_for_user
-from rest_framework.permissions import IsAuthenticated
-
-
 
 # ==============================
-# Crear pago (Paso 6.2 / 6.3)
+# Crear pago
 # ==============================
 class CrearPagoView(APIView):
     permission_classes = [IsAuthenticated]
@@ -29,7 +24,7 @@ class CrearPagoView(APIView):
         amount = 10000  # CLP
         provider = "mercadopago"
 
-        # 1️⃣ Crear pago en BD
+        # Crear pago en BD
         payment = Payment.objects.create(
             user=user,
             amount=amount,
@@ -37,19 +32,19 @@ class CrearPagoView(APIView):
             status="pending",
         )
 
-        # 2️⃣ Crear preferencia Mercado Pago
+        # Crear preferencia Mercado Pago
         mp = MercadoPagoService()
         preference = mp.crear_preferencia(
-        titulo="Suscripción BINTRACK",
-         precio=amount,
-         payment_id=payment.id,
-         )
+            titulo="Suscripción BINTRACK",
+            precio=amount,
+            payment_id=payment.id,
+        )
 
-        # 3️⃣ Guardar ID externo
+        # Guardar ID externo
         payment.external_id = preference.get("id")
         payment.save()
 
-        # 4️⃣ URL correcta según entorno
+        # URL según entorno
         init_point = (
             preference.get("sandbox_init_point")
             if settings.DEBUG
@@ -66,11 +61,11 @@ class CrearPagoView(APIView):
 
 
 # ==============================
-# Confirmación manual (Paso 6.4)
-# ⚠️ NO ES CONFIRMACIÓN FINAL
+# Confirmación manual
+# No debe considerarse fuente definitiva
 # ==============================
 class ConfirmarPagoView(APIView):
-    permission_classes = [AllowAny]  # MercadoPago NO envía JWT
+    permission_classes = [AllowAny]  # MercadoPago no envía JWT
 
     def get(self, request):
         payment_id_mp = request.GET.get("payment_id")
@@ -84,17 +79,15 @@ class ConfirmarPagoView(APIView):
         mp = MercadoPagoService()
         mp_payment = mp.consultar_pago(payment_id_mp)
 
-        # 🔑 AQUÍ ESTÁ LA CLAVE
         external_reference = mp_payment.get("external_reference")
 
         payment = get_object_or_404(
             Payment,
-            id=external_reference
+            id=external_reference,
         )
 
         status_mp = mp_payment.get("status")
 
-        # Mapear estado MercadoPago → BD
         if status_mp == "approved":
             payment.status = "approved"
         elif status_mp == "pending":
@@ -115,31 +108,36 @@ class ConfirmarPagoView(APIView):
 
 
 # ==============================
-# ✅ WEBHOOK MERCADOPAGO (Paso 6.5)
-# CONFIRMACIÓN REAL Y DEFINITIVA
+# Webhook MercadoPago
+# Confirmación real y definitiva
 # ==============================
 @csrf_exempt
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def MercadoPagoWebhookView(request):
-
     topic = request.GET.get("topic")
     mp_id = request.GET.get("id")
 
     mp = MercadoPagoService()
 
-    # Checkout Pro → merchant_order
+    # Checkout Pro -> merchant_order
     if topic == "merchant_order":
         result = mp.sdk.merchant_order().get(mp_id)
 
         if result["status"] != 200:
-            return Response({"status": "order_not_found"}, status=200)
+            return Response(
+                {"status": "order_not_found"},
+                status=200,
+            )
 
         order = result["response"]
         payments = order.get("payments", [])
 
         if not payments:
-            return Response({"status": "no_payments_yet"}, status=200)
+            return Response(
+                {"status": "no_payments_yet"},
+                status=200,
+            )
 
         mp_payment_id = payments[0]["id"]
 
@@ -148,22 +146,31 @@ def MercadoPagoWebhookView(request):
         mp_payment_id = mp_id
 
     else:
-        return Response({"status": "ignored"}, status=200)
+        return Response(
+            {"status": "ignored"},
+            status=200,
+        )
 
-    # 🔑 CONSULTA REAL
     mp_payment = mp.consultar_pago(mp_payment_id)
     status_mp = mp_payment.get("status")
 
-    # 🔑 LA CLAVE
     external_reference = mp_payment.get("external_reference")
 
     if not external_reference:
-        return Response({"status": "no_reference"}, status=200)
+        return Response(
+            {"status": "no_reference"},
+            status=200,
+        )
 
     try:
-        payment = Payment.objects.get(id=external_reference)
+        payment = Payment.objects.get(
+            id=external_reference,
+        )
     except Payment.DoesNotExist:
-        return Response({"status": "payment_not_found"}, status=200)
+        return Response(
+            {"status": "payment_not_found"},
+            status=200,
+        )
 
     if status_mp == "approved":
         payment.status = "approved"
@@ -183,21 +190,32 @@ def MercadoPagoWebhookView(request):
         status=200,
     )
 
+
 # ==============================
-# 🧪 SIMULACIÓN DE PAGO APROBADO
-# SOLO DESARROLLO
+# Simulación de pago aprobado
+# Solo desarrollo
 # ==============================
 class SimularPagoAprobadoView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, payment_id):
-        payment = Payment.objects.get(id=payment_id)
+        if not settings.DEBUG:
+            return Response(
+                {
+                    "error": "No disponible en producción",
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
-        # 1️⃣ Marcar pago aprobado
+        payment = get_object_or_404(
+            Payment,
+            id=payment_id,
+            user=request.user,
+        )
+
         payment.status = "approved"
         payment.save()
 
-        # 2️⃣ Activar suscripción del usuario (lógica temporal)
         user = payment.user
         user.suscripcion_activa = True
         user.save()
