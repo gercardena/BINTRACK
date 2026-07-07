@@ -23,6 +23,7 @@ class Product(models.Model):
     def __str__(self):
         return self.nombre
 
+
 class ProductPresentation(models.Model):
 
     product = models.ForeignKey(
@@ -40,6 +41,38 @@ class ProductPresentation(models.Model):
     precio = models.DecimalField(
         max_digits=10,
         decimal_places=2,
+    )
+
+    # ===============================
+    # Campos opcionales futuros
+    # ===============================
+
+    unidad_medida = models.CharField(
+        max_length=30,
+        blank=True,
+        null=True,
+    )
+
+    cantidad_por_envase = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        blank=True,
+        null=True,
+    )
+
+    envase_contenido = models.ForeignKey(
+        "bins.BinType",
+        on_delete=models.PROTECT,
+        related_name="contenido_en_presentaciones",
+        blank=True,
+        null=True,
+    )
+
+    cantidad_envase_contenido = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        blank=True,
+        null=True,
     )
 
     activo = models.BooleanField(default=True)

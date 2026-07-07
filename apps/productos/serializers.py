@@ -25,6 +25,11 @@ class ProductPresentationSerializer(
         read_only=True,
     )
 
+    envase_contenido_nombre = serializers.CharField(
+        source="envase_contenido.nombre",
+        read_only=True,
+    )
+
     stock = serializers.SerializerMethodField()
 
     class Meta:
@@ -37,6 +42,11 @@ class ProductPresentationSerializer(
             "bin_type",
             "bin_nombre",
             "precio",
+            "unidad_medida",
+            "cantidad_por_envase",
+            "envase_contenido",
+            "envase_contenido_nombre",
+            "cantidad_envase_contenido",
             "activo",
             "stock",
             "fecha_creacion",
