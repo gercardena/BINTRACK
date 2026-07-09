@@ -9,10 +9,15 @@ from django.conf import settings
 class BinType(models.Model):
 
     TIPO_CHOICES = [
-        ("BIN", "Bin"),
-        ("PALLET", "Pallet"),
-        ("CAJA", "Caja"),
-    ]
+    ("BIN", "Bin"),
+    ("PALLET", "Pallet"),
+    ("CAJA", "Caja"),
+    ("GAMELA", "Gamela"),
+    ("BANDEJA", "Bandeja"),
+    ("SACO", "Saco"),
+    ("BOLSA", "Bolsa"),
+    ("OTRO", "Otro"),
+]
 
     nombre = models.CharField(max_length=100)
 
