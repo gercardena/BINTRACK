@@ -10,6 +10,7 @@ from rest_framework.views import APIView
 
 from .models import Payment
 from .services.mercadopago import MercadoPagoService
+from apps.accounts.services.subscriptions import activate_subscription_for_user
 
 
 # ==============================
@@ -90,10 +91,11 @@ class ConfirmarPagoView(APIView):
 
         if status_mp == "approved":
             payment.status = "approved"
-        elif status_mp == "pending":
-            payment.status = "pending"
-        else:
+            activate_subscription_for_user(payment.user)
+        elif status_mp == "rejected":
             payment.status = "rejected"
+        else:
+            payment.status = "pending"
 
         payment.save()
 
@@ -174,6 +176,7 @@ def MercadoPagoWebhookView(request):
 
     if status_mp == "approved":
         payment.status = "approved"
+        activate_subscription_for_user(payment.user)
     elif status_mp == "rejected":
         payment.status = "rejected"
     else:
@@ -217,8 +220,7 @@ class SimularPagoAprobadoView(APIView):
         payment.save()
 
         user = payment.user
-        user.suscripcion_activa = True
-        user.save()
+        activate_subscription_for_user(user)
 
         return Response(
             {
