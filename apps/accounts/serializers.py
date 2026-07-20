@@ -81,6 +81,9 @@ class UserSubscriptionSerializer(serializers.ModelSerializer):
 # Serializer: PERFIL USUARIO (ENDPOINT PROTEGIDO)
 # ----------------------------------------------------
 class UserProfileSerializer(serializers.ModelSerializer):
+    suscripcion_plan = serializers.SerializerMethodField()
+    suscripcion_fecha_fin = serializers.SerializerMethodField()
+    suscripcion_estado = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -91,4 +94,44 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "rut",
             "telefono",
             "suscripcion_activa",
+            "suscripcion_plan",
+            "suscripcion_fecha_fin",
+            "suscripcion_estado",
         ]
+
+    def get_suscripcion(self, user):
+        return UserSubscription.objects.filter(
+            usuario=user,
+        ).select_related(
+            "plan",
+        ).first()
+
+    def get_suscripcion_plan(self, user):
+        subscription = self.get_suscripcion(user)
+
+        if not subscription:
+            return None
+
+        return subscription.plan.nombre
+
+    def get_suscripcion_fecha_fin(self, user):
+        subscription = self.get_suscripcion(user)
+
+        if not subscription:
+            return None
+
+        return subscription.fecha_fin
+
+    def get_suscripcion_estado(self, user):
+        subscription = self.get_suscripcion(user)
+
+        if not subscription:
+            return "sin_suscripcion"
+
+        if subscription.esta_vigente():
+            return "activa"
+
+        if subscription.activa:
+            return "vencida"
+
+        return "inactiva"
