@@ -77,3 +77,38 @@ Por ahora no conviene partir integrando pagos complejos hasta confirmar:
 - si la app irá a Google Play;
 - si los clientes pagarán desde la app, desde una web o manualmente;
 - política comercial mensual.
+
+
+
+## Pendiente: bloqueo suave en la app
+
+Por ahora BinTrack muestra el estado de suscripción en el Home, pero no bloquea módulos operativos.
+
+La decisión recomendada para una versión futura es aplicar un bloqueo suave:
+
+Usuarios sin suscripción activa pueden:
+- iniciar sesión;
+- ver el Home;
+- ver el estado de suscripción;
+- abrir la Guía de usuario;
+- cerrar sesión.
+
+Usuarios sin suscripción activa no deberían usar módulos operativos:
+- Nueva venta;
+- Clientes;
+- Envases;
+- Productos;
+- Inventario;
+- Ventas;
+- Pagos;
+- Comprobantes.
+
+Mensaje recomendado:
+
+"Suscripción requerida. Activa tu plan mensual para usar este módulo."
+
+Motivo de dejarlo pendiente:
+- evitar bloquear pruebas internas;
+- permitir demos;
+- confirmar primero el flujo comercial;
+- definir antes si el pago será manual, Mercado Pago, Webpay o Google Play Billing.
