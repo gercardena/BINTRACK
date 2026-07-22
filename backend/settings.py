@@ -69,6 +69,25 @@ ALLOWED_HOSTS = env_list(
     default="127.0.0.1,localhost",
 )
 
+CSRF_TRUSTED_ORIGINS = env_list(
+    "DJANGO_CSRF_TRUSTED_ORIGINS",
+)
+
+SECURE_SSL_REDIRECT = env_bool(
+    "DJANGO_SECURE_SSL_REDIRECT",
+    default=False,
+)
+
+SESSION_COOKIE_SECURE = env_bool(
+    "DJANGO_SESSION_COOKIE_SECURE",
+    default=False,
+)
+
+CSRF_COOKIE_SECURE = env_bool(
+    "DJANGO_CSRF_COOKIE_SECURE",
+    default=False,
+)
+
 CORS_ALLOW_ALL_ORIGINS = env_bool(
     "DJANGO_CORS_ALLOW_ALL",
     default=DEBUG,
@@ -226,6 +245,8 @@ USE_TZ = True
 # ==============================
 
 STATIC_URL = "static/"
+
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
 
 # ==============================
