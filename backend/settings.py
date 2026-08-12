@@ -7,6 +7,7 @@ import sys
 from datetime import timedelta
 from pathlib import Path
 
+import dj_database_url
 from corsheaders.defaults import default_headers
 from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
@@ -14,7 +15,7 @@ from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Cargar archivo .env desde la raíz del proyecto.
+# Cargar archivo .env desde la raiz del proyecto.
 load_dotenv(BASE_DIR / ".env")
 
 # Permitir que Django encuentre las apps dentro de /apps.
@@ -56,7 +57,7 @@ SECRET_KEY = (
 
 if not SECRET_KEY:
     raise ImproperlyConfigured(
-        "SECRET_KEY no está configurada en .env"
+        "SECRET_KEY no esta configurada en .env"
     )
 
 DEBUG = env_bool(
@@ -68,6 +69,15 @@ ALLOWED_HOSTS = env_list(
     "DJANGO_ALLOWED_HOSTS",
     default="127.0.0.1,localhost",
 )
+
+RENDER_EXTERNAL_HOSTNAME = os.getenv(
+    "RENDER_EXTERNAL_HOSTNAME",
+)
+
+if RENDER_EXTERNAL_HOSTNAME and (
+    RENDER_EXTERNAL_HOSTNAME not in ALLOWED_HOSTS
+):
+    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
 
 CSRF_TRUSTED_ORIGINS = env_list(
     "DJANGO_CSRF_TRUSTED_ORIGINS",
@@ -142,6 +152,7 @@ AUTH_USER_MODEL = "accounts.User"
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -183,16 +194,27 @@ WSGI_APPLICATION = "backend.wsgi.application"
 # Base de datos
 # ==============================
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv("DB_NAME"),
-        "USER": os.getenv("DB_USER"),
-        "PASSWORD": os.getenv("DB_PASSWORD"),
-        "HOST": os.getenv("DB_HOST", "127.0.0.1"),
-        "PORT": os.getenv("DB_PORT", "5432"),
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if DATABASE_URL:
+    DATABASES = {
+        "default": dj_database_url.parse(
+            DATABASE_URL,
+            conn_max_age=600,
+            ssl_require=True,
+        )
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.getenv("DB_NAME"),
+            "USER": os.getenv("DB_USER"),
+            "PASSWORD": os.getenv("DB_PASSWORD"),
+            "HOST": os.getenv("DB_HOST", "127.0.0.1"),
+            "PORT": os.getenv("DB_PORT", "5432"),
+        }
+    }
 
 
 # ==============================
@@ -228,7 +250,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 
 # ==============================
-# Internacionalización
+# Internacionalizacion
 # ==============================
 
 LANGUAGE_CODE = "es-cl"
@@ -247,6 +269,10 @@ USE_TZ = True
 STATIC_URL = "static/"
 
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
+STATICFILES_STORAGE = (
+    "whitenoise.storage.CompressedManifestStaticFilesStorage"
+)
 
 
 # ==============================

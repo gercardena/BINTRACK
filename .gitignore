@@ -21,3 +21,5 @@ __pycache__/
 *.backup
 *.dump
 *.sql
+# Static files generados por collectstatic
+staticfiles/
