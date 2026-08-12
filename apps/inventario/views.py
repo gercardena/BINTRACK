@@ -26,7 +26,9 @@ class InventoryView(APIView):
         user = request.user
         resultado = []
 
-        bin_types = BinType.objects.all()
+        bin_types = BinType.objects.filter(
+            usuario=user,
+        )
 
         for bin_type in bin_types:
 
@@ -59,7 +61,7 @@ class InventoryView(APIView):
                 total=Sum("cantidad"),
             )["total"] or 0
 
-            # Bins llenos con productos disponibles para vender
+            # Envases llenos con productos disponibles para vender
             llenos = Inventory.objects.filter(
                 usuario=user,
                 bin=bin_type,
@@ -67,10 +69,10 @@ class InventoryView(APIView):
                 total=Sum("cantidad"),
             )["total"] or 0
 
-            # Bins que todavía permanecen con clientes
+            # Envases que todavía permanecen con clientes
             en_clientes = prestamos - devoluciones
 
-            # Bins vacíos disponibles para volver a cargar
+            # Envases vacíos disponibles para volver a cargar
             disponible = (
                 entradas
                 - bajas
@@ -97,7 +99,7 @@ class InventoryView(APIView):
 
 
 # -------------------------------------
-# Stock real por producto + bin
+# Stock real por producto + envase
 # GET + POST
 # -------------------------------------
 class StockListView(ListCreateAPIView):
@@ -106,10 +108,14 @@ class StockListView(ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Inventory.objects.filter(usuario=self.request.user)
+        return Inventory.objects.filter(
+            usuario=self.request.user,
+        )
 
     def perform_create(self, serializer):
-        serializer.save(usuario=self.request.user)
+        serializer.save(
+            usuario=self.request.user,
+        )
 
 
 # -------------------------------------
@@ -122,4 +128,6 @@ class StockDetailView(RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Inventory.objects.filter(usuario=self.request.user)
+        return Inventory.objects.filter(
+            usuario=self.request.user,
+        )

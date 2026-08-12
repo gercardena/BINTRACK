@@ -1,5 +1,3 @@
-from decimal import Decimal
-
 from django.db.models import Sum
 
 from rest_framework.generics import (
@@ -31,7 +29,14 @@ class BinTypeListView(ListCreateAPIView):
     serializer_class = BinTypeSerializer
 
     def get_queryset(self):
-        return BinType.objects.all()
+        return BinType.objects.filter(
+            usuario=self.request.user,
+        )
+
+    def perform_create(self, serializer):
+        serializer.save(
+            usuario=self.request.user,
+        )
 
 
 # -------------------------------------
@@ -44,10 +49,14 @@ class ClienteListView(ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Client.objects.all()
+        return Client.objects.filter(
+            usuario=self.request.user,
+        )
 
     def perform_create(self, serializer):
-        serializer.save()
+        serializer.save(
+            usuario=self.request.user,
+        )
 
 
 # -------------------------------------
@@ -60,7 +69,9 @@ class ClienteDetailView(RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Client.objects.all()
+        return Client.objects.filter(
+            usuario=self.request.user,
+        )
 
 
 # -------------------------------------
@@ -74,12 +85,12 @@ class BinMovementListView(ListCreateAPIView):
 
     def get_queryset(self):
         return BinMovement.objects.filter(
-            usuario=self.request.user
+            usuario=self.request.user,
         )
 
     def perform_create(self, serializer):
         serializer.save(
-            usuario=self.request.user
+            usuario=self.request.user,
         )
 
 
@@ -96,33 +107,37 @@ class BinBalanceView(APIView):
 
         resultado = []
 
-        clientes = Client.objects.all()
+        clientes = Client.objects.filter(
+            usuario=user,
+        )
+
+        bin_types = BinType.objects.filter(
+            usuario=user,
+        )
 
         for cliente in clientes:
-
-            bin_types = BinType.objects.all()
 
             for bin_type in bin_types:
 
                 movimientos = BinMovement.objects.filter(
                     usuario=user,
                     cliente=cliente,
-                    bin_type=bin_type
+                    bin_type=bin_type,
                 )
 
                 if not movimientos.exists():
                     continue
 
                 entregados = movimientos.filter(
-                    tipo_movimiento="prestamo"
+                    tipo_movimiento="prestamo",
                 ).aggregate(
-                    total=Sum("cantidad")
+                    total=Sum("cantidad"),
                 )["total"] or 0
 
                 devueltos = movimientos.filter(
-                    tipo_movimiento="devolucion"
+                    tipo_movimiento="devolucion",
                 ).aggregate(
-                    total=Sum("cantidad")
+                    total=Sum("cantidad"),
                 )["total"] or 0
 
                 saldo = entregados - devueltos
@@ -149,11 +164,11 @@ class BinBalanceView(APIView):
                 }
 
                 serializer = BinBalanceSerializer(
-                    data
+                    data,
                 )
 
                 resultado.append(
-                    serializer.data
+                    serializer.data,
                 )
 
         return Response(resultado)
