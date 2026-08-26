@@ -40,6 +40,21 @@ class BinTypeListView(ListCreateAPIView):
 
 
 # -------------------------------------
+# Tipo de envase detalle
+# GET + PUT + DELETE
+# -------------------------------------
+class BinTypeDetailView(RetrieveUpdateDestroyAPIView):
+
+    serializer_class = BinTypeSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return BinType.objects.filter(
+            usuario=self.request.user,
+        )
+
+
+# -------------------------------------
 # Clientes bins
 # GET + POST
 # -------------------------------------
