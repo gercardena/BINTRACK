@@ -1,25 +1,33 @@
-from rest_framework import generics
+from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from .models import UserSubscription
 from .serializers import (
-    RegisterSerializer,
     LoginSerializer,
-    UserSubscriptionSerializer
+    UserSubscriptionSerializer,
 )
 
 from .serializers import UserProfileSerializer
 
 
-
 # ----------------------------------------------------
 # Registro de usuario
 # ----------------------------------------------------
-class RegisterView(generics.CreateAPIView):
-    serializer_class = RegisterSerializer
+class RegisterView(APIView):
     permission_classes = [AllowAny]
+
+    def post(self, request):
+        return Response(
+            {
+                "detail": (
+                    "El registro de usuarios desde la app está deshabilitado. "
+                    "Solicita la creación de usuario al administrador."
+                )
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
 
 
 # ----------------------------------------------------
@@ -42,25 +50,34 @@ class SubscriptionStatusView(APIView):
 
     def get(self, request):
         try:
-            suscripcion = UserSubscription.objects.get(usuario=request.user, activa=True)
+            suscripcion = UserSubscription.objects.get(
+                usuario=request.user,
+                activa=True,
+            )
         except UserSubscription.DoesNotExist:
-            return Response({
-                "suscrito": False,
-                "mensaje": "El usuario NO tiene una suscripción activa"
-            })
+            return Response(
+                {
+                    "suscrito": False,
+                    "mensaje": (
+                        "El usuario NO tiene una suscripción activa"
+                    ),
+                }
+            )
 
         serializer = UserSubscriptionSerializer(suscripcion)
 
-        return Response({
-            "suscrito": True,
-            "detalle": serializer.data
-        })
-    
+        return Response(
+            {
+                "suscrito": True,
+                "detalle": serializer.data,
+            }
+        )
+
+
 # ----------------------------------------------------
 # PERFIL USUARIO (endpoint protegido real)
 # ----------------------------------------------------
 class UserProfileView(APIView):
-
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
