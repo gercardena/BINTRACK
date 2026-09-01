@@ -112,12 +112,10 @@ class Sale(models.Model):
     def calcular_totales(self):
         items = self.items.all()
         subtotal = sum((item.subtotal for item in items), Decimal("0.00"))
-        iva = subtotal * IVA_RATE
-        total = subtotal + iva
 
         self.subtotal = subtotal
-        self.iva = iva
-        self.total = total
+        self.iva = Decimal("0.00")
+        self.total = subtotal
 
         super().save(update_fields=["subtotal", "iva", "total"])
 
