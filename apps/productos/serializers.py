@@ -42,6 +42,7 @@ class ProductPresentationSerializer(
             "bin_type",
             "bin_nombre",
             "precio",
+            "tipo_cobro",
             "unidad_medida",
             "cantidad_por_envase",
             "envase_contenido",
