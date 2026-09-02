@@ -29,12 +29,15 @@ class SaleItemSerializer(serializers.ModelSerializer):
             "bin_nombre",
             "cantidad",
             "bins_cantidad",
+            "tipo_cobro_snapshot",
+            "kilos_pesados",
             "precio_unitario",
             "subtotal",
         ]
 
         read_only_fields = [
             "bins_cantidad",
+            "tipo_cobro_snapshot",
             "precio_unitario",
             "subtotal",
         ]
@@ -62,6 +65,11 @@ class SaleItemSerializer(serializers.ModelSerializer):
         cantidad = attrs.get(
             "cantidad",
             getattr(self.instance, "cantidad", 0),
+        )
+
+        kilos_pesados = attrs.get(
+            "kilos_pesados",
+            getattr(self.instance, "kilos_pesados", None),
         )
 
         if sale.usuario_id != user.id:
@@ -103,6 +111,18 @@ class SaleItemSerializer(serializers.ModelSerializer):
 
         attrs["precio_unitario"] = presentation.precio
         attrs["bins_cantidad"] = cantidad
+        attrs["tipo_cobro_snapshot"] = presentation.tipo_cobro
+
+        if presentation.tipo_cobro == "kilo":
+            if kilos_pesados is None or kilos_pesados <= 0:
+                raise serializers.ValidationError({
+                    "kilos_pesados": (
+                        "Debes ingresar los kilos pesados "
+                        "para esta presentación."
+                    )
+                })
+        else:
+            attrs["kilos_pesados"] = None
 
         return attrs
 

@@ -363,6 +363,18 @@ class SaleItem(models.Model):
 
     bins_cantidad = models.PositiveIntegerField(default=0)
 
+    tipo_cobro_snapshot = models.CharField(
+        max_length=20,
+        default="envase",
+    )
+
+    kilos_pesados = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        blank=True,
+        null=True,
+    )
+
     precio_unitario = models.DecimalField(
         max_digits=10,
         decimal_places=2
@@ -383,7 +395,24 @@ class SaleItem(models.Model):
                 "a la cantidad vendida."
             )
 
-        self.subtotal = self.cantidad * self.precio_unitario
+        if self.tipo_cobro_snapshot == "kilo":
+            if self.kilos_pesados is None or self.kilos_pesados <= 0:
+                raise ValidationError(
+                    "Debes ingresar los kilos pesados "
+                    "para una venta por kilo."
+                )
+
+            self.subtotal = (
+                self.kilos_pesados *
+                self.precio_unitario
+            )
+        else:
+            self.kilos_pesados = None
+            self.subtotal = (
+                self.cantidad *
+                self.precio_unitario
+            )
+
         super().save(*args, **kwargs)
         self.sale.calcular_totales()
 
