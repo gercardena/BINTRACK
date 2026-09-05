@@ -6,7 +6,6 @@ from .models import Sale, SaleItem
 
 
 class SaleItemSerializer(serializers.ModelSerializer):
-
     product_nombre = serializers.CharField(
         source="product.nombre",
         read_only=True,
@@ -37,8 +36,6 @@ class SaleItemSerializer(serializers.ModelSerializer):
 
         read_only_fields = [
             "bins_cantidad",
-            "tipo_cobro_snapshot",
-            "precio_unitario",
             "subtotal",
         ]
 
@@ -65,6 +62,15 @@ class SaleItemSerializer(serializers.ModelSerializer):
         cantidad = attrs.get(
             "cantidad",
             getattr(self.instance, "cantidad", 0),
+        )
+
+        tipo_cobro = attrs.get(
+            "tipo_cobro_snapshot",
+            getattr(
+                self.instance,
+                "tipo_cobro_snapshot",
+                "envase",
+            ),
         )
 
         kilos_pesados = attrs.get(
@@ -94,10 +100,18 @@ class SaleItemSerializer(serializers.ModelSerializer):
                 )
             })
 
+        if tipo_cobro not in ["envase", "kilo"]:
+            raise serializers.ValidationError({
+                "tipo_cobro_snapshot": (
+                    "Tipo de cobro inválido."
+                )
+            })
+
         try:
             presentation = ProductPresentation.objects.get(
                 product=product,
                 bin_type=bin_type,
+                tipo_cobro=tipo_cobro,
                 activo=True,
             )
 
@@ -105,11 +119,19 @@ class SaleItemSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({
                 "bin": (
                     "No existe una presentación activa para "
-                    "este producto y envase."
+                    "este producto, envase y tipo de cobro."
                 )
             })
 
-        attrs["precio_unitario"] = presentation.precio
+        precio_unitario = attrs.get(
+            "precio_unitario",
+            getattr(self.instance, "precio_unitario", None),
+        )
+
+        if precio_unitario is None or precio_unitario <= 0:
+            precio_unitario = presentation.precio
+
+        attrs["precio_unitario"] = precio_unitario
         attrs["bins_cantidad"] = cantidad
         attrs["tipo_cobro_snapshot"] = presentation.tipo_cobro
 
@@ -128,7 +150,6 @@ class SaleItemSerializer(serializers.ModelSerializer):
 
 
 class SaleSerializer(serializers.ModelSerializer):
-
     items = SaleItemSerializer(
         many=True,
         read_only=True,

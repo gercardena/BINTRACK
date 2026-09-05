@@ -3,7 +3,6 @@ from django.conf import settings
 
 
 class Product(models.Model):
-
     usuario = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -29,7 +28,6 @@ class Product(models.Model):
 
 
 class ProductPresentation(models.Model):
-
     TIPO_COBRO_CHOICES = [
         ("envase", "Por envase"),
         ("kilo", "Por kilo"),
@@ -100,8 +98,8 @@ class ProductPresentation(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=["product", "bin_type"],
-                name="unique_product_bin_presentation",
+                fields=["product", "bin_type", "tipo_cobro"],
+                name="unique_product_bin_billing_presentation",
             )
         ]
 
