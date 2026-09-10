@@ -8,6 +8,7 @@ from rest_framework.generics import (
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 
+from apps.accounts.services.users import get_usuario_titular
 from apps.bins.models import (
     BinType,
     BinMovement,
@@ -23,17 +24,20 @@ class InventoryView(APIView):
 
     def get(self, request):
 
-        user = request.user
+        titular = get_usuario_titular(
+            request.user,
+        )
+
         resultado = []
 
         bin_types = BinType.objects.filter(
-            usuario=user,
+            usuario=titular,
         )
 
         for bin_type in bin_types:
 
             movimientos = BinMovement.objects.filter(
-                usuario=user,
+                usuario=titular,
                 bin_type=bin_type,
             )
 
@@ -63,7 +67,7 @@ class InventoryView(APIView):
 
             # Envases llenos con productos disponibles para vender
             llenos = Inventory.objects.filter(
-                usuario=user,
+                usuario=titular,
                 bin=bin_type,
             ).aggregate(
                 total=Sum("cantidad"),
@@ -108,13 +112,21 @@ class StockListView(ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        titular = get_usuario_titular(
+            self.request.user,
+        )
+
         return Inventory.objects.filter(
-            usuario=self.request.user,
+            usuario=titular,
         )
 
     def perform_create(self, serializer):
+        titular = get_usuario_titular(
+            self.request.user,
+        )
+
         serializer.save(
-            usuario=self.request.user,
+            usuario=titular,
         )
 
 
@@ -128,6 +140,10 @@ class StockDetailView(RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        titular = get_usuario_titular(
+            self.request.user,
+        )
+
         return Inventory.objects.filter(
-            usuario=self.request.user,
+            usuario=titular,
         )
