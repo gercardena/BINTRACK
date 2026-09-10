@@ -1,13 +1,13 @@
 from django.db import transaction
 from rest_framework import serializers
 
+from apps.accounts.services.users import get_usuario_titular
 from apps.ventas.models import Sale
 
 from .models import Pago
 
 
 class PagoSerializer(serializers.ModelSerializer):
-
     sale = serializers.PrimaryKeyRelatedField(
         queryset=Sale.objects.none(),
     )
@@ -48,9 +48,13 @@ class PagoSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
 
         if request and request.user.is_authenticated:
+            titular = get_usuario_titular(
+                request.user,
+            )
+
             self.fields["sale"].queryset = (
                 Sale.objects.filter(
-                    usuario=request.user,
+                    usuario=titular,
                 )
             )
 
@@ -77,6 +81,10 @@ class PagoSerializer(serializers.ModelSerializer):
 
         request = self.context["request"]
 
+        titular = get_usuario_titular(
+            request.user,
+        )
+
         selected_sale = validated_data.pop("sale")
 
         with transaction.atomic():
@@ -86,7 +94,7 @@ class PagoSerializer(serializers.ModelSerializer):
                 .select_for_update()
                 .get(
                     pk=selected_sale.pk,
-                    usuario=request.user,
+                    usuario=titular,
                 )
             )
 
