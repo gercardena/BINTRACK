@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from apps.accounts.services.users import get_usuario_titular
 from apps.productos.models import ProductPresentation
 
 from .models import Sale, SaleItem
@@ -42,7 +43,9 @@ class SaleItemSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
 
         request = self.context["request"]
-        user = request.user
+        titular = get_usuario_titular(
+            request.user,
+        )
 
         sale = attrs.get(
             "sale",
@@ -78,9 +81,9 @@ class SaleItemSerializer(serializers.ModelSerializer):
             getattr(self.instance, "kilos_pesados", None),
         )
 
-        if sale.usuario_id != user.id:
+        if sale.usuario_id != titular.id:
             raise serializers.ValidationError(
-                "La venta no pertenece al usuario autenticado."
+                "La venta no pertenece al usuario titular."
             )
 
         if sale.estado != "draft":
@@ -88,9 +91,9 @@ class SaleItemSerializer(serializers.ModelSerializer):
                 "Solo se pueden modificar ventas en borrador."
             )
 
-        if product.usuario_id != user.id:
+        if product.usuario_id != titular.id:
             raise serializers.ValidationError(
-                "El producto no pertenece al usuario autenticado."
+                "El producto no pertenece al usuario titular."
             )
 
         if cantidad < 1:
@@ -189,14 +192,16 @@ class SaleSerializer(serializers.ModelSerializer):
 
         request = self.context.get("request")
 
-        if (
-            request
-            and cliente.usuario_id != request.user.id
-        ):
-            raise serializers.ValidationError(
-                "El cliente no pertenece al "
-                "usuario autenticado."
+        if request:
+            titular = get_usuario_titular(
+                request.user,
             )
+
+            if cliente.usuario_id != titular.id:
+                raise serializers.ValidationError(
+                    "El cliente no pertenece al "
+                    "usuario titular."
+                )
 
         if not cliente.activo:
             raise serializers.ValidationError(

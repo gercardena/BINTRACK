@@ -6,6 +6,8 @@ from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
 from django.db import transaction
 
+from apps.accounts.services.users import get_usuario_titular
+
 from .models import Sale, SaleItem
 from .serializers import SaleSerializer, SaleItemSerializer
 
@@ -21,18 +23,26 @@ class SaleViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
 
+        titular = get_usuario_titular(
+            self.request.user,
+        )
+
         return Sale.objects.filter(
-            usuario=self.request.user
+            usuario=titular,
         ).select_related(
-            "cliente"
+            "cliente",
         ).prefetch_related(
-            "items__product"
+            "items__product",
         )
 
     def perform_create(self, serializer):
 
+        titular = get_usuario_titular(
+            self.request.user,
+        )
+
         serializer.save(
-            usuario=self.request.user
+            usuario=titular,
         )
 
     # ==========================
@@ -97,7 +107,7 @@ class SaleViewSet(viewsets.ModelViewSet):
                 {
                     "error": str(e)
                 },
-                status=400
+                status=400,
             )
 
         return Response(
@@ -141,7 +151,7 @@ class SaleViewSet(viewsets.ModelViewSet):
                 {
                     "error": str(e)
                 },
-                status=400
+                status=400,
             )
 
         return Response(
@@ -155,24 +165,26 @@ class SaleViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"])
     def dashboard(self, request):
 
-        user = request.user
+        titular = get_usuario_titular(
+            request.user,
+        )
 
         hoy = timezone.now().date()
 
         inicio_mes = hoy.replace(day=1)
 
         ventas = Sale.objects.filter(
-            usuario=user
+            usuario=titular,
         )
 
         ventas_hoy = ventas.filter(
             fecha_creacion__date=hoy,
-            estado="paid"
+            estado="paid",
         )
 
         ventas_mes = ventas.filter(
             fecha_creacion__date__gte=inicio_mes,
-            estado="paid"
+            estado="paid",
         )
 
         data = {
@@ -193,22 +205,22 @@ class SaleViewSet(viewsets.ModelViewSet):
 
             "ventas_confirmadas":
                 ventas.filter(
-                    estado="confirmed"
+                    estado="confirmed",
                 ).count(),
 
             "ventas_pagadas":
                 ventas.filter(
-                    estado="paid"
+                    estado="paid",
                 ).count(),
 
             "ventas_draft":
                 ventas.filter(
-                    estado="draft"
+                    estado="draft",
                 ).count(),
 
             "ventas_canceladas":
                 ventas.filter(
-                    estado="cancelled"
+                    estado="cancelled",
                 ).count(),
         }
 
@@ -226,8 +238,12 @@ class SaleItemViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
 
+        titular = get_usuario_titular(
+            self.request.user,
+        )
+
         return SaleItem.objects.filter(
-            sale__usuario=self.request.user
+            sale__usuario=titular,
         ).select_related(
             "sale",
             "product",
