@@ -3,6 +3,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
+from apps.accounts.services.users import get_usuario_titular
+
 from .models import UserSubscription
 from .serializers import (
     LoginSerializer,
@@ -43,15 +45,19 @@ class LoginView(APIView):
 
 
 # ----------------------------------------------------
-# Paso 5: Consultar estado de suscripción
+# Consultar estado de suscripción
 # ----------------------------------------------------
 class SubscriptionStatusView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        titular = get_usuario_titular(
+            request.user,
+        )
+
         try:
             suscripcion = UserSubscription.objects.get(
-                usuario=request.user,
+                usuario=titular,
                 activa=True,
             )
         except UserSubscription.DoesNotExist:
@@ -59,7 +65,7 @@ class SubscriptionStatusView(APIView):
                 {
                     "suscrito": False,
                     "mensaje": (
-                        "El usuario NO tiene una suscripción activa"
+                        "El usuario titular NO tiene una suscripción activa"
                     ),
                 }
             )
@@ -81,5 +87,16 @@ class UserProfileView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        serializer = UserProfileSerializer(request.user)
+        titular = get_usuario_titular(
+            request.user,
+        )
+
+        serializer = UserProfileSerializer(
+            request.user,
+            context={
+                "request": request,
+                "titular": titular,
+            },
+        )
+
         return Response(serializer.data)

@@ -1,7 +1,12 @@
 from rest_framework import serializers
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
-from .models import User, SubscriptionPlan, UserSubscription
+
+from .models import (
+    User,
+    SubscriptionPlan,
+    UserSubscription,
+)
 
 
 # ----------------------------------------------------
@@ -12,10 +17,16 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['username', 'email', 'password', 'rut', 'telefono']
+        fields = [
+            "username",
+            "email",
+            "password",
+            "rut",
+            "telefono",
+        ]
 
     def create(self, validated_data):
-        password = validated_data.pop('password')
+        password = validated_data.pop("password")
 
         user = User(**validated_data)
         user.set_password(password)
@@ -36,22 +47,28 @@ class LoginSerializer(serializers.Serializer):
         email = data.get("email")
         password = data.get("password")
 
-        # Buscar usuario por email
         try:
             user = User.objects.get(email=email)
         except User.DoesNotExist:
-            raise serializers.ValidationError({"email": "El email no está registrado."})
+            raise serializers.ValidationError({
+                "email": "El email no está registrado."
+            })
 
-        # Autenticar
-        user = authenticate(username=user.username, password=password)
+        user = authenticate(
+            username=user.username,
+            password=password,
+        )
 
         if not user:
-            raise serializers.ValidationError({"password": "Contraseña incorrecta."})
+            raise serializers.ValidationError({
+                "password": "Contraseña incorrecta."
+            })
 
         if not user.is_active:
-            raise serializers.ValidationError("La cuenta está desactivada.")
+            raise serializers.ValidationError(
+                "La cuenta está desactivada."
+            )
 
-        # Crear tokens JWT
         refresh = RefreshToken.for_user(user)
 
         return {
@@ -61,7 +78,7 @@ class LoginSerializer(serializers.Serializer):
                 "id": user.id,
                 "username": user.username,
                 "email": user.email,
-            }
+            },
         }
 
 
@@ -75,15 +92,27 @@ class UserSubscriptionSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UserSubscription
-        fields = ['plan', 'precio', 'duracion', 'fecha_inicio', 'fecha_fin', 'activa']
+        fields = [
+            "plan",
+            "precio",
+            "duracion",
+            "fecha_inicio",
+            "fecha_fin",
+            "activa",
+        ]
+
 
 # ----------------------------------------------------
 # Serializer: PERFIL USUARIO (ENDPOINT PROTEGIDO)
 # ----------------------------------------------------
 class UserProfileSerializer(serializers.ModelSerializer):
+    suscripcion_activa = serializers.SerializerMethodField()
     suscripcion_plan = serializers.SerializerMethodField()
     suscripcion_fecha_fin = serializers.SerializerMethodField()
     suscripcion_estado = serializers.SerializerMethodField()
+    titular_id = serializers.SerializerMethodField()
+    titular_username = serializers.SerializerMethodField()
+    es_usuario_asociado = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -97,14 +126,35 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "suscripcion_plan",
             "suscripcion_fecha_fin",
             "suscripcion_estado",
+            "titular_id",
+            "titular_username",
+            "es_usuario_asociado",
         ]
 
+    def get_titular(self, user):
+        titular = self.context.get("titular")
+
+        if titular:
+            return titular
+
+        return user
+
     def get_suscripcion(self, user):
+        titular = self.get_titular(user)
+
         return UserSubscription.objects.filter(
-            usuario=user,
+            usuario=titular,
         ).select_related(
             "plan",
         ).first()
+
+    def get_suscripcion_activa(self, user):
+        subscription = self.get_suscripcion(user)
+
+        if not subscription:
+            return False
+
+        return subscription.esta_vigente()
 
     def get_suscripcion_plan(self, user):
         subscription = self.get_suscripcion(user)
@@ -135,3 +185,18 @@ class UserProfileSerializer(serializers.ModelSerializer):
             return "vencida"
 
         return "inactiva"
+
+    def get_titular_id(self, user):
+        titular = self.get_titular(user)
+
+        return titular.id
+
+    def get_titular_username(self, user):
+        titular = self.get_titular(user)
+
+        return titular.username
+
+    def get_es_usuario_asociado(self, user):
+        titular = self.get_titular(user)
+
+        return titular.id != user.id
