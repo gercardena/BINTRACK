@@ -8,6 +8,9 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.accounts.services.users import get_usuario_titular
+from apps.clientes.models import Client
+
 from .models import BinType, BinMovement
 from .serializers import (
     BinTypeSerializer,
@@ -15,8 +18,6 @@ from .serializers import (
     BinMovementSerializer,
     BinBalanceSerializer,
 )
-
-from apps.clientes.models import Client
 
 
 # -------------------------------------
@@ -29,13 +30,21 @@ class BinTypeListView(ListCreateAPIView):
     serializer_class = BinTypeSerializer
 
     def get_queryset(self):
+        titular = get_usuario_titular(
+            self.request.user,
+        )
+
         return BinType.objects.filter(
-            usuario=self.request.user,
+            usuario=titular,
         )
 
     def perform_create(self, serializer):
+        titular = get_usuario_titular(
+            self.request.user,
+        )
+
         serializer.save(
-            usuario=self.request.user,
+            usuario=titular,
         )
 
 
@@ -49,8 +58,12 @@ class BinTypeDetailView(RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        titular = get_usuario_titular(
+            self.request.user,
+        )
+
         return BinType.objects.filter(
-            usuario=self.request.user,
+            usuario=titular,
         )
 
 
@@ -64,13 +77,21 @@ class ClienteListView(ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        titular = get_usuario_titular(
+            self.request.user,
+        )
+
         return Client.objects.filter(
-            usuario=self.request.user,
+            usuario=titular,
         )
 
     def perform_create(self, serializer):
+        titular = get_usuario_titular(
+            self.request.user,
+        )
+
         serializer.save(
-            usuario=self.request.user,
+            usuario=titular,
         )
 
 
@@ -84,8 +105,12 @@ class ClienteDetailView(RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        titular = get_usuario_titular(
+            self.request.user,
+        )
+
         return Client.objects.filter(
-            usuario=self.request.user,
+            usuario=titular,
         )
 
 
@@ -99,13 +124,21 @@ class BinMovementListView(ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        titular = get_usuario_titular(
+            self.request.user,
+        )
+
         return BinMovement.objects.filter(
-            usuario=self.request.user,
+            usuario=titular,
         )
 
     def perform_create(self, serializer):
+        titular = get_usuario_titular(
+            self.request.user,
+        )
+
         serializer.save(
-            usuario=self.request.user,
+            usuario=titular,
         )
 
 
@@ -118,16 +151,18 @@ class BinBalanceView(APIView):
 
     def get(self, request):
 
-        user = request.user
+        titular = get_usuario_titular(
+            request.user,
+        )
 
         resultado = []
 
         clientes = Client.objects.filter(
-            usuario=user,
+            usuario=titular,
         )
 
         bin_types = BinType.objects.filter(
-            usuario=user,
+            usuario=titular,
         )
 
         for cliente in clientes:
@@ -135,7 +170,7 @@ class BinBalanceView(APIView):
             for bin_type in bin_types:
 
                 movimientos = BinMovement.objects.filter(
-                    usuario=user,
+                    usuario=titular,
                     cliente=cliente,
                     bin_type=bin_type,
                 )
