@@ -4,6 +4,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from apps.accounts.services.users import get_usuario_titular
 from apps.ventas.models import Sale
 
 from .models import Factura
@@ -15,15 +16,18 @@ class FacturaViewSet(
     mixins.RetrieveModelMixin,
     viewsets.GenericViewSet,
 ):
-
     serializer_class = FacturaSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        titular = get_usuario_titular(
+            self.request.user,
+        )
+
         return (
             Factura.objects
             .filter(
-                sale__usuario=self.request.user,
+                sale__usuario=titular,
             )
             .select_related(
                 "sale",
@@ -34,6 +38,10 @@ class FacturaViewSet(
     @action(detail=True, methods=["post"])
     def generar(self, request, pk=None):
 
+        titular = get_usuario_titular(
+            request.user,
+        )
+
         with transaction.atomic():
 
             try:
@@ -43,7 +51,7 @@ class FacturaViewSet(
                     .select_related("cliente")
                     .get(
                         pk=pk,
-                        usuario=request.user,
+                        usuario=titular,
                     )
                 )
 
