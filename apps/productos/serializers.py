@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from apps.accounts.services.users import get_usuario_titular
+
 from .models import Product, ProductPresentation
 
 
@@ -12,7 +14,7 @@ class ProductSerializer(serializers.ModelSerializer):
 
 
 class ProductPresentationSerializer(
-    serializers.ModelSerializer
+    serializers.ModelSerializer,
 ):
 
     product_nombre = serializers.CharField(
@@ -59,20 +61,28 @@ class ProductPresentationSerializer(
             "fecha_actualizacion",
         ]
 
+    def get_titular(self):
+        request = self.context.get("request")
+
+        if request is None:
+            return None
+
+        return get_usuario_titular(request.user)
+
     def get_stock(self, presentation):
 
         from apps.inventario.models import Inventory
 
-        request = self.context.get("request")
+        titular = self.get_titular()
 
-        if request is None:
+        if titular is None:
             return {
                 "id": None,
                 "cantidad": 0,
             }
 
         inventory = Inventory.objects.filter(
-            usuario=request.user,
+            usuario=titular,
             product=presentation.product,
             bin=presentation.bin_type,
         ).first()
@@ -111,8 +121,10 @@ class ProductPresentationSerializer(
 
             from apps.inventario.models import Inventory
 
+            titular = get_usuario_titular(request.user)
+
             cantidad = Inventory.objects.filter(
-                usuario=request.user,
+                usuario=titular,
                 product=product,
                 bin=bin_type,
             ).values_list(
@@ -134,9 +146,12 @@ class ProductPresentationSerializer(
 
         request = self.context.get("request")
 
-        if request and product.usuario_id != request.user.id:
-            raise serializers.ValidationError(
-                "El producto no pertenece al usuario autenticado."
-            )
+        if request:
+            titular = get_usuario_titular(request.user)
+
+            if product.usuario_id != titular.id:
+                raise serializers.ValidationError(
+                    "El producto no pertenece al usuario titular."
+                )
 
         return product
