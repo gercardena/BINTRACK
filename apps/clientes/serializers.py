@@ -2,6 +2,8 @@ import re
 
 from rest_framework import serializers
 
+from apps.accounts.services.users import get_usuario_titular
+
 from .models import Client
 
 
@@ -77,8 +79,10 @@ class ClientSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
 
         if request is not None:
+            titular = get_usuario_titular(request.user)
+
             queryset = Client.objects.filter(
-                usuario=request.user,
+                usuario=titular,
                 rut=rut,
             )
 
