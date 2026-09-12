@@ -1,6 +1,7 @@
 from django.db.models import Sum
 from rest_framework import serializers
 
+from apps.accounts.services.users import get_usuario_titular
 from apps.bins.models import BinMovement
 from apps.productos.models import ProductPresentation
 
@@ -8,7 +9,6 @@ from .models import Inventory
 
 
 class InventorySerializer(serializers.Serializer):
-
     bin_type_id = serializers.IntegerField()
     bin_nombre = serializers.CharField()
 
@@ -57,7 +57,7 @@ class StockSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
 
         request = self.context["request"]
-        user = request.user
+        titular = get_usuario_titular(request.user)
 
         product = attrs.get(
             "product",
@@ -79,9 +79,18 @@ class StockSerializer(serializers.ModelSerializer):
                 "cantidad": "La cantidad no puede ser negativa."
             })
 
-        if product.usuario_id != user.id:
+        if product.usuario_id != titular.id:
             raise serializers.ValidationError({
-                "product": "El producto no pertenece al usuario."
+                "product": (
+                    "El producto no pertenece al usuario titular."
+                )
+            })
+
+        if bin_type.usuario_id != titular.id:
+            raise serializers.ValidationError({
+                "bin": (
+                    "El envase no pertenece al usuario titular."
+                )
             })
 
         presentation_exists = ProductPresentation.objects.filter(
@@ -99,7 +108,7 @@ class StockSerializer(serializers.ModelSerializer):
             })
 
         movimientos = BinMovement.objects.filter(
-            usuario=user,
+            usuario=titular,
             bin_type=bin_type,
         )
 
@@ -136,13 +145,13 @@ class StockSerializer(serializers.ModelSerializer):
         )
 
         otros_inventarios = Inventory.objects.filter(
-            usuario=user,
+            usuario=titular,
             bin=bin_type,
         )
 
         if self.instance:
             otros_inventarios = otros_inventarios.exclude(
-                pk=self.instance.pk
+                pk=self.instance.pk,
             )
 
         llenos_otros_productos = otros_inventarios.aggregate(
