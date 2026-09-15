@@ -1,10 +1,13 @@
-from rest_framework import viewsets, permissions
-from django.utils import timezone
-from django.db.models import Sum
-from rest_framework.decorators import action
-from rest_framework.response import Response
-from rest_framework.exceptions import ValidationError
+from datetime import date, timedelta
+
 from django.db import transaction
+from django.db.models import Sum
+from django.utils import timezone
+
+from rest_framework import viewsets, permissions
+from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
+from rest_framework.response import Response
 
 from apps.accounts.services.users import get_usuario_titular
 
@@ -33,6 +36,7 @@ class SaleViewSet(viewsets.ModelViewSet):
             "cliente",
         ).prefetch_related(
             "items__product",
+            "items__bin",
         )
 
     def perform_create(self, serializer):
@@ -105,13 +109,13 @@ class SaleViewSet(viewsets.ModelViewSet):
 
             return Response(
                 {
-                    "error": str(e)
+                    "error": str(e),
                 },
                 status=400,
             )
 
         return Response(
-            self.get_serializer(sale).data
+            self.get_serializer(sale).data,
         )
 
     # ==========================
@@ -149,13 +153,13 @@ class SaleViewSet(viewsets.ModelViewSet):
 
             return Response(
                 {
-                    "error": str(e)
+                    "error": str(e),
                 },
                 status=400,
             )
 
         return Response(
-            self.get_serializer(sale).data
+            self.get_serializer(sale).data,
         )
 
     # ==========================
@@ -169,7 +173,7 @@ class SaleViewSet(viewsets.ModelViewSet):
             request.user,
         )
 
-        hoy = timezone.now().date()
+        hoy = timezone.localdate()
 
         inicio_mes = hoy.replace(day=1)
 
@@ -193,14 +197,14 @@ class SaleViewSet(viewsets.ModelViewSet):
 
             "ingresos_hoy":
                 ventas_hoy.aggregate(
-                    total=Sum("total")
+                    total=Sum("total"),
                 )["total"] or 0,
 
             "ventas_mes": ventas_mes.count(),
 
             "ingresos_mes":
                 ventas_mes.aggregate(
-                    total=Sum("total")
+                    total=Sum("total"),
                 )["total"] or 0,
 
             "ventas_confirmadas":
@@ -222,6 +226,168 @@ class SaleViewSet(viewsets.ModelViewSet):
                 ventas.filter(
                     estado="cancelled",
                 ).count(),
+        }
+
+        return Response(data)
+
+    # ==========================
+    # REPORTE DE VENTAS
+    # ==========================
+
+    @action(detail=False, methods=["get"])
+    def reporte(self, request):
+
+        titular = get_usuario_titular(
+            request.user,
+        )
+
+        periodo = request.query_params.get(
+            "periodo",
+            "semana",
+        )
+
+        hoy = timezone.localdate()
+
+        desde_param = request.query_params.get("desde")
+        hasta_param = request.query_params.get("hasta")
+
+        if desde_param and hasta_param:
+            try:
+                desde = date.fromisoformat(desde_param)
+                hasta = date.fromisoformat(hasta_param)
+                periodo = "personalizado"
+            except ValueError:
+                raise ValidationError(
+                    "Las fechas deben usar formato YYYY-MM-DD."
+                )
+
+        elif periodo == "hoy":
+            desde = hoy
+            hasta = hoy
+
+        elif periodo == "mes":
+            desde = hoy.replace(day=1)
+            hasta = hoy
+
+        else:
+            periodo = "semana"
+            desde = hoy - timedelta(
+                days=hoy.weekday(),
+            )
+            hasta = hoy
+
+        ventas = (
+            Sale.objects
+            .filter(
+                usuario=titular,
+                estado__in=[
+                    "confirmed",
+                    "paid",
+                ],
+                fecha_creacion__date__gte=desde,
+                fecha_creacion__date__lte=hasta,
+            )
+            .select_related(
+                "cliente",
+            )
+            .prefetch_related(
+                "items__product",
+                "items__bin",
+            )
+            .order_by(
+                "-fecha_creacion",
+            )
+        )
+
+        ventas_contado = ventas.filter(
+            estado="paid",
+        )
+
+        ventas_credito = ventas.filter(
+            estado="confirmed",
+        )
+
+        total_contado = (
+            ventas_contado.aggregate(
+                total=Sum("total"),
+            )["total"] or 0
+        )
+
+        total_credito = (
+            ventas_credito.aggregate(
+                total=Sum("total"),
+            )["total"] or 0
+        )
+
+        total_vendido = total_contado + total_credito
+
+        clientes_pagados = (
+            ventas_contado
+            .values("cliente_id")
+            .distinct()
+            .count()
+        )
+
+        clientes_credito = (
+            ventas_credito
+            .values("cliente_id")
+            .distinct()
+            .count()
+        )
+
+        ventas_data = []
+
+        for sale in ventas:
+
+            items = []
+
+            for item in sale.items.all():
+                items.append({
+                    "product_nombre": item.product.nombre,
+                    "bin_nombre": item.bin.nombre,
+                    "cantidad": item.cantidad,
+                    "bins_cantidad": item.bins_cantidad,
+                    "tipo_cobro": item.tipo_cobro_snapshot,
+                    "kilos_pesados": item.kilos_pesados,
+                    "precio_unitario": item.precio_unitario,
+                    "subtotal": item.subtotal,
+                })
+
+            tipo_reporte = (
+                "contado"
+                if sale.estado == "paid"
+                else "credito"
+            )
+
+            ventas_data.append({
+                "id": sale.id,
+                "numero": sale.numero,
+                "fecha": sale.fecha_creacion,
+                "cliente_id": sale.cliente_id,
+                "cliente_nombre": sale.cliente.nombre,
+                "estado": sale.estado,
+                "tipo_reporte": tipo_reporte,
+                "total": sale.total,
+                "items": items,
+            })
+
+        data = {
+            "periodo": periodo,
+            "desde": desde,
+            "hasta": hasta,
+
+            "total_vendido": total_vendido,
+            "total_contado": total_contado,
+            "total_credito": total_credito,
+
+            "cantidad_ventas": ventas.count(),
+            "cantidad_ventas_contado": ventas_contado.count(),
+            "cantidad_ventas_credito": ventas_credito.count(),
+
+            "cantidad_clientes_pagados": clientes_pagados,
+            "cantidad_clientes_credito": clientes_credito,
+
+            "ventas": ventas_data,
         }
 
         return Response(data)
