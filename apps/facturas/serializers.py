@@ -1,6 +1,28 @@
 from rest_framework import serializers
 
-from .models import Factura
+from .models import Factura, FacturaCambio
+
+
+class FacturaEdicionSerializer(serializers.Serializer):
+    version = serializers.IntegerField(min_value=0)
+    cliente_nombre = serializers.CharField(max_length=255, required=False)
+    cliente_direccion = serializers.CharField(max_length=255, allow_blank=True, required=False)
+    observaciones = serializers.CharField(max_length=2000, allow_blank=True, required=False)
+
+    def to_internal_value(self, data):
+        if not isinstance(data, dict):
+            raise serializers.ValidationError("Se esperaba un objeto de datos.")
+        extra = set(data) - set(self.fields)
+        if extra:
+            raise serializers.ValidationError({key: "Este campo no se puede editar." for key in extra})
+        return super().to_internal_value(data)
+
+
+class FacturaCambioSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FacturaCambio
+        fields = ["id", "usuario_nombre", "fecha", "cambios"]
+        read_only_fields = fields
 
 
 class FacturaItemSerializer(serializers.Serializer):
@@ -54,6 +76,8 @@ class FacturaSerializer(serializers.ModelSerializer):
             "total",
             "fecha_emision",
             "items",
+            "observaciones",
+            "version",
         ]
 
         read_only_fields = fields

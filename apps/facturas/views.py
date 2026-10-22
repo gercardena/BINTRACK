@@ -1,4 +1,5 @@
 from django.db import transaction
+from django.shortcuts import get_object_or_404
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -7,8 +8,8 @@ from rest_framework.response import Response
 from apps.accounts.services.users import get_usuario_titular
 from apps.ventas.models import Sale
 
-from .models import Factura
-from .serializers import FacturaSerializer
+from .models import Factura, FacturaCambio
+from .serializers import FacturaSerializer, FacturaEdicionSerializer, FacturaCambioSerializer
 
 
 class FacturaViewSet(
@@ -34,6 +35,43 @@ class FacturaViewSet(
                 "sale__cliente",
             )
         )
+
+    @action(detail=True, methods=["post"])
+    def editar(self, request, pk=None):
+        with transaction.atomic():
+            # Filter by titular before locking; never accept an owner from the client.
+            factura = get_object_or_404(
+                self.get_queryset().select_for_update(of=("self",)), pk=pk,
+            )
+            self.check_object_permissions(request, factura)
+            serializer = FacturaEdicionSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            data = dict(serializer.validated_data)
+            version = data.pop("version")
+            if version != factura.version:
+                return Response(
+                    {"detail": "El comprobante cambió. Vuelve a abrirlo antes de editar."},
+                    status=status.HTTP_409_CONFLICT,
+                )
+            cambios = {
+                campo: {"antes": getattr(factura, campo), "despues": valor}
+                for campo, valor in data.items() if getattr(factura, campo) != valor
+            }
+            if cambios:
+                for campo in cambios:
+                    setattr(factura, campo, data[campo])
+                factura.version += 1
+                factura.save(update_fields=[*cambios, "version"])
+                FacturaCambio.objects.create(
+                    factura=factura, usuario=request.user,
+                    usuario_nombre=request.user.get_username(), cambios=cambios,
+                )
+            return Response(self.get_serializer(factura).data)
+
+    @action(detail=True, methods=["get"])
+    def historial(self, request, pk=None):
+        factura = self.get_object()
+        return Response(FacturaCambioSerializer(factura.cambios.all(), many=True).data)
 
     @action(detail=True, methods=["post"])
     def generar(self, request, pk=None):
