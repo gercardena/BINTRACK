@@ -1,6 +1,9 @@
 from rest_framework import serializers
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
+from .permissions.account_owner import es_titular
+from .services.users import get_usuario_titular
+from .services.subscription_access import subscription_access
 
 from .models import (
     User,
@@ -69,6 +72,7 @@ class LoginSerializer(serializers.Serializer):
                 "La cuenta está desactivada."
             )
 
+        get_usuario_titular(user)  # Reject a disabled secondary before issuing tokens.
         refresh = RefreshToken.for_user(user)
 
         return {
@@ -106,6 +110,8 @@ class UserSubscriptionSerializer(serializers.ModelSerializer):
 # Serializer: PERFIL USUARIO (ENDPOINT PROTEGIDO)
 # ----------------------------------------------------
 class UserProfileSerializer(serializers.ModelSerializer):
+    suscripcion_acceso = serializers.SerializerMethodField()
+    puede_gestionar_cuenta = serializers.SerializerMethodField()
     suscripcion_activa = serializers.SerializerMethodField()
     suscripcion_plan = serializers.SerializerMethodField()
     suscripcion_fecha_fin = serializers.SerializerMethodField()
@@ -129,6 +135,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "titular_id",
             "titular_username",
             "es_usuario_asociado",
+            "puede_gestionar_cuenta",
+            "suscripcion_acceso",
         ]
 
     def get_titular(self, user):
@@ -138,6 +146,9 @@ class UserProfileSerializer(serializers.ModelSerializer):
             return titular
 
         return user
+
+    def get_puede_gestionar_cuenta(self, user):
+        return es_titular(user)
 
     def get_suscripcion(self, user):
         titular = self.get_titular(user)
@@ -154,7 +165,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
         if not subscription:
             return False
 
-        return subscription.esta_vigente()
+        return subscription_access(subscription)["estado"] == "activa"
 
     def get_suscripcion_plan(self, user):
         subscription = self.get_suscripcion(user)
@@ -173,18 +184,10 @@ class UserProfileSerializer(serializers.ModelSerializer):
         return subscription.fecha_fin
 
     def get_suscripcion_estado(self, user):
-        subscription = self.get_suscripcion(user)
+        return self.get_suscripcion_acceso(user)["estado"]
 
-        if not subscription:
-            return "sin_suscripcion"
-
-        if subscription.esta_vigente():
-            return "activa"
-
-        if subscription.activa:
-            return "vencida"
-
-        return "inactiva"
+    def get_suscripcion_acceso(self, user):
+        return subscription_access(self.get_suscripcion(user))
 
     def get_titular_id(self, user):
         titular = self.get_titular(user)

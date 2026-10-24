@@ -1,18 +1,14 @@
-from rest_framework.permissions import BasePermission
-
-from apps.accounts.models import UserSubscription
-from apps.accounts.services.users import get_usuario_titular
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.permissions import BasePermission, SAFE_METHODS
+from apps.accounts.services.subscription_access import access_for_user
 
 
 class HasActiveSubscription(BasePermission):
-    """
-    Permite acceso solo a usuarios con suscripción activa.
+    """Business data stays readable; writes require a current or grace period.
 
-    Si el usuario es asociado, se valida la suscripción
-    del usuario titular.
+    Kept under the existing class name for compatibility. Account management,
+    authentication and subscription payments are deliberately separate.
     """
-
-    message = "Tu suscripción no está activa."
 
     def has_permission(self, request, view):
         user = request.user
@@ -20,18 +16,12 @@ class HasActiveSubscription(BasePermission):
         if not user or not user.is_authenticated:
             return False
 
-        titular = get_usuario_titular(user)
-
-        subscription = (
-            UserSubscription.objects
-            .filter(
-                usuario=titular,
-                activa=True,
-            )
-            .first()
-        )
-
-        if subscription is None:
-            return False
-
-        return subscription.esta_vigente()
+        access = access_for_user(user)
+        if request.method in SAFE_METHODS or access["puede_operar"]:
+            return True
+        raise PermissionDenied({
+            "code": "subscription_read_only",
+            "detail": "La cuenta está en modo solo lectura. Puedes consultar tus datos, "
+                      "pero no registrar ni modificar operaciones. El principal debe regularizar la suscripción.",
+            "estado": access["estado"],
+        })

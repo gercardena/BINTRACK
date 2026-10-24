@@ -3,6 +3,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.accounts.services.users import get_usuario_titular
+from apps.accounts.permissions.subscription import HasActiveSubscription
 
 from .models import Client
 from .serializers import ClientSerializer
@@ -10,7 +11,7 @@ from .serializers import ClientSerializer
 
 class ClientViewSet(viewsets.ModelViewSet):
     serializer_class = ClientSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasActiveSubscription]
 
     def get_queryset(self):
         titular = get_usuario_titular(

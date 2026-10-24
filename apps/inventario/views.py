@@ -9,6 +9,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 
 from apps.accounts.services.users import get_usuario_titular
+from apps.accounts.permissions.subscription import HasActiveSubscription
 from apps.bins.models import (
     BinType,
     BinMovement,
@@ -20,7 +21,7 @@ from .serializers import InventorySerializer, StockSerializer
 
 class InventoryView(APIView):
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasActiveSubscription]
 
     def get(self, request):
 
@@ -109,7 +110,7 @@ class InventoryView(APIView):
 class StockListView(ListCreateAPIView):
 
     serializer_class = StockSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasActiveSubscription]
 
     def get_queryset(self):
         titular = get_usuario_titular(
@@ -137,7 +138,7 @@ class StockListView(ListCreateAPIView):
 class StockDetailView(RetrieveUpdateDestroyAPIView):
 
     serializer_class = StockSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasActiveSubscription]
 
     def get_queryset(self):
         titular = get_usuario_titular(

@@ -6,6 +6,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.accounts.services.users import get_usuario_titular
+from apps.accounts.permissions.subscription import HasActiveSubscription
 from apps.ventas.models import Sale
 
 from .models import Factura, FacturaCambio
@@ -18,7 +19,7 @@ class FacturaViewSet(
     viewsets.GenericViewSet,
 ):
     serializer_class = FacturaSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasActiveSubscription]
 
     def get_queryset(self):
         titular = get_usuario_titular(

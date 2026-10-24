@@ -32,6 +32,10 @@ class User(AbstractUser):
 # Plan de suscripción
 # ----------------------------------------------------
 class SubscriptionPlan(models.Model):
+    # Stable identifiers for the monthly catalog. Null keeps historical plans intact.
+    codigo = models.CharField(max_length=40, unique=True, null=True, blank=True)
+    usuarios_secundarios = models.PositiveSmallIntegerField(null=True, blank=True)
+
     nombre = models.CharField(
         max_length=50,
     )
@@ -68,6 +72,9 @@ class UserSubscription(models.Model):
 
     fecha_fin = models.DateTimeField()
 
+    # Retain the original monthly billing day across short months (31 -> 28 -> 31).
+    dia_facturacion = models.PositiveSmallIntegerField(null=True, blank=True)
+
     activa = models.BooleanField(
         default=True,
     )
@@ -76,7 +83,7 @@ class UserSubscription(models.Model):
         return f"Suscripción de {self.usuario.username}"
 
     def esta_vigente(self):
-        return self.activa and timezone.now() < self.fecha_fin
+        return self.activa and self.fecha_inicio <= timezone.now() < self.fecha_fin
 
 
 # ----------------------------------------------------

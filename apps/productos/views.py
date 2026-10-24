@@ -1,6 +1,7 @@
 from rest_framework import generics, permissions
 
 from apps.accounts.services.users import get_usuario_titular
+from apps.accounts.permissions.subscription import HasActiveSubscription
 
 from .models import Product, ProductPresentation
 from .serializers import (
@@ -12,7 +13,7 @@ from .serializers import (
 # 🔥 LISTAR + CREAR
 class ProductListCreateView(generics.ListCreateAPIView):
     serializer_class = ProductSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, HasActiveSubscription]
 
     def get_queryset(self):
         titular = get_usuario_titular(
@@ -36,7 +37,7 @@ class ProductListCreateView(generics.ListCreateAPIView):
 # 🔥 ELIMINAR + EDITAR
 class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = ProductSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, HasActiveSubscription]
 
     def get_queryset(self):
         titular = get_usuario_titular(
@@ -52,7 +53,7 @@ class ProductPresentationListCreateView(
     generics.ListCreateAPIView
 ):
     serializer_class = ProductPresentationSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, HasActiveSubscription]
 
     def get_queryset(self):
         titular = get_usuario_titular(
@@ -71,7 +72,7 @@ class ProductPresentationDetailView(
     generics.RetrieveUpdateDestroyAPIView
 ):
     serializer_class = ProductPresentationSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, HasActiveSubscription]
 
     def get_queryset(self):
         titular = get_usuario_titular(

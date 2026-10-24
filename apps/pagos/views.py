@@ -2,6 +2,7 @@ from rest_framework import mixins, viewsets
 from rest_framework.permissions import IsAuthenticated
 
 from apps.accounts.services.users import get_usuario_titular
+from apps.accounts.permissions.subscription import HasActiveSubscription
 
 from .models import Pago
 from .serializers import PagoSerializer
@@ -14,7 +15,7 @@ class PagoViewSet(
     viewsets.GenericViewSet,
 ):
     serializer_class = PagoSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasActiveSubscription]
 
     def get_queryset(self):
         titular = get_usuario_titular(

@@ -1,8 +1,10 @@
+from datetime import timedelta
 from django.test import TestCase
+from django.utils import timezone
 from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIRequestFactory, force_authenticate
-from apps.accounts.models import UsuarioAsociado
+from apps.accounts.models import UsuarioAsociado, SubscriptionPlan, UserSubscription
 from apps.clientes.models import Client
 from apps.ventas.models import Sale
 from .models import Factura, FacturaCambio
@@ -15,6 +17,9 @@ class FacturaEdicionTests(TestCase):
         self.titular = user.objects.create_user(username="titular")
         self.asociado = user.objects.create_user(username="asociado")
         self.otro = user.objects.create_user(username="otro")
+        plan = SubscriptionPlan.objects.get(codigo="bintrack_mensual_0")
+        for owner in (self.titular, self.otro):
+            UserSubscription.objects.create(usuario=owner, plan=plan, fecha_fin=timezone.now() + timedelta(days=10))
         UsuarioAsociado.objects.create(titular=self.titular, usuario_asociado=self.asociado)
         self.cliente = Client.objects.create(usuario=self.titular, nombre="Cliente original", rut="11111111-1", direccion="Dirección original")
         self.sale = Sale.objects.create(usuario=self.titular, cliente=self.cliente, estado="paid", subtotal=100, iva=0, total=100)
@@ -66,7 +71,7 @@ class FacturaEdicionTests(TestCase):
             self.assertEqual(self.request(action=action).status_code, 401)
             self.assertEqual(self.request(action=action, user=self.otro, data={"version": 0}).status_code, 404)
         UsuarioAsociado.objects.filter(usuario_asociado=self.asociado).update(activo=False)
-        self.assertEqual(self.request(user=self.asociado, data={"version": 0}).status_code, 404)
+        self.assertEqual(self.request(user=self.asociado, data={"version": 0}).status_code, 403)
 
     def test_validation_and_stale_version(self):
         for data in [{"version": 0, "cliente_nombre": "   "}, {"version": 0, "observaciones": "x" * 2001},

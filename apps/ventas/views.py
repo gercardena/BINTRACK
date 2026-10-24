@@ -10,6 +10,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
 from apps.accounts.services.users import get_usuario_titular
+from apps.accounts.permissions.subscription import HasActiveSubscription
 
 from .models import Sale, SaleItem
 from .serializers import SaleSerializer, SaleItemSerializer
@@ -22,7 +23,7 @@ from .serializers import SaleSerializer, SaleItemSerializer
 class SaleViewSet(viewsets.ModelViewSet):
 
     serializer_class = SaleSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, HasActiveSubscription]
 
     def get_queryset(self):
 
@@ -400,7 +401,7 @@ class SaleViewSet(viewsets.ModelViewSet):
 class SaleItemViewSet(viewsets.ModelViewSet):
 
     serializer_class = SaleItemSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, HasActiveSubscription]
 
     def get_queryset(self):
 

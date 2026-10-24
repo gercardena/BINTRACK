@@ -9,6 +9,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.services.users import get_usuario_titular
+from apps.accounts.permissions.subscription import HasActiveSubscription
 from apps.clientes.models import Client
 
 from .models import BinType, BinMovement
@@ -26,7 +27,7 @@ from .serializers import (
 # -------------------------------------
 class BinTypeListView(ListCreateAPIView):
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasActiveSubscription]
     serializer_class = BinTypeSerializer
 
     def get_queryset(self):
@@ -55,7 +56,7 @@ class BinTypeListView(ListCreateAPIView):
 class BinTypeDetailView(RetrieveUpdateDestroyAPIView):
 
     serializer_class = BinTypeSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasActiveSubscription]
 
     def get_queryset(self):
         titular = get_usuario_titular(
@@ -74,7 +75,7 @@ class BinTypeDetailView(RetrieveUpdateDestroyAPIView):
 class ClienteListView(ListCreateAPIView):
 
     serializer_class = ClienteSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasActiveSubscription]
 
     def get_queryset(self):
         titular = get_usuario_titular(
@@ -102,7 +103,7 @@ class ClienteListView(ListCreateAPIView):
 class ClienteDetailView(RetrieveUpdateDestroyAPIView):
 
     serializer_class = ClienteSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasActiveSubscription]
 
     def get_queryset(self):
         titular = get_usuario_titular(
@@ -121,7 +122,7 @@ class ClienteDetailView(RetrieveUpdateDestroyAPIView):
 class BinMovementListView(ListCreateAPIView):
 
     serializer_class = BinMovementSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasActiveSubscription]
 
     def get_queryset(self):
         titular = get_usuario_titular(
@@ -147,7 +148,7 @@ class BinMovementListView(ListCreateAPIView):
 # -------------------------------------
 class BinBalanceView(APIView):
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasActiveSubscription]
 
     def get(self, request):
 

@@ -11,13 +11,14 @@ from rest_framework.views import APIView
 from .models import Payment
 from .services.mercadopago import MercadoPagoService
 from apps.accounts.services.subscriptions import activate_subscription_for_user
+from apps.accounts.permissions.account_owner import IsAccountOwner
 
 
 # ==============================
 # Crear pago
 # ==============================
 class CrearPagoView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAccountOwner]
 
     def post(self, request):
         user = request.user
@@ -199,7 +200,7 @@ def MercadoPagoWebhookView(request):
 # Solo desarrollo
 # ==============================
 class SimularPagoAprobadoView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAccountOwner]
 
     def post(self, request, payment_id):
         if not settings.DEBUG:
