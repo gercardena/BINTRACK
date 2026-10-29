@@ -1,7 +1,7 @@
 """Calendar-month renewal primitive. Not a payment endpoint or payment proof.
 
-Stage 3 must call this only after verified, idempotent payment reconciliation.
-The historical Mercado Pago callbacks are NOT connected to this function yet.
+Only call this after verified, idempotent payment reconciliation. The sandbox
+checkout service enforces that boundary; this function is not payment evidence.
 """
 from calendar import monthrange
 from datetime import timezone as dt_timezone

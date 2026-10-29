@@ -1,234 +1,96 @@
-from django.conf import settings
-from django.shortcuts import get_object_or_404
-from django.views.decorators.csrf import csrf_exempt
+import re
 
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.exceptions import ValidationError
 
-from .models import Payment
-from .services.mercadopago import MercadoPagoService
-from apps.accounts.services.subscriptions import activate_subscription_for_user
 from apps.accounts.permissions.account_owner import IsAccountOwner
+from .models import Payment
+from .services.checkout import create_checkout
+from .services.mercadopago import MercadoPagoService
+from .services.reconciliation import reconcile
+from .services.signatures import verify_notification
 
 
-# ==============================
-# Crear pago
-# ==============================
+def payment_data(payment):
+    usable_link = (payment.environment == "sandbox" and not payment.applied_at
+                   and not payment.needs_review and payment.expires_at
+                   and payment.expires_at > timezone.now()
+                   and payment.status in {"pending", "rejected"})
+    return {
+        "payment_id": payment.pk,
+        "status": payment.status,
+        "amount": payment.amount,
+        "currency": "CLP",
+        "environment": payment.environment or "legacy",
+        "init_point": payment.checkout_url if usable_link else None,
+        "expires_at": payment.expires_at,
+        "applied": payment.applied_at is not None,
+        "applied_until": payment.applied_until,
+        "needs_review": payment.needs_review,
+        "review_reason": payment.review_reason,
+    }
+
+
 class CrearPagoView(APIView):
     permission_classes = [IsAuthenticated, IsAccountOwner]
 
     def post(self, request):
-        user = request.user
-
-        amount = 10000  # CLP
-        provider = "mercadopago"
-
-        # Crear pago en BD
-        payment = Payment.objects.create(
-            user=user,
-            amount=amount,
-            provider=provider,
-            status="pending",
-        )
-
-        # Crear preferencia Mercado Pago
-        mp = MercadoPagoService()
-        preference = mp.crear_preferencia(
-            titulo="Suscripción BINTRACK",
-            precio=amount,
-            payment_id=payment.id,
-        )
-
-        # Guardar ID externo
-        payment.external_id = preference.get("id")
-        payment.save()
-
-        # URL según entorno
-        init_point = (
-            preference.get("sandbox_init_point")
-            if settings.DEBUG
-            else preference.get("init_point")
-        )
-
-        return Response(
-            {
-                "payment_id": payment.id,
-                "init_point": init_point,
-            },
-            status=status.HTTP_201_CREATED,
-        )
+        if request.data:
+            raise ValidationError("El importe, plan y período se calculan en el servidor; no envíes esos campos.")
+        payment, created = create_checkout(request.user)
+        return Response(payment_data(payment), status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
 
-# ==============================
-# Confirmación manual
-# No debe considerarse fuente definitiva
-# ==============================
 class ConfirmarPagoView(APIView):
-    permission_classes = [AllowAny]  # MercadoPago no envía JWT
+    """Read-only polling. A browser redirect is never evidence of payment."""
+    permission_classes = [IsAuthenticated, IsAccountOwner]
 
     def get(self, request):
-        payment_id_mp = request.GET.get("payment_id")
-
-        if not payment_id_mp:
-            return Response(
-                {"error": "payment_id no recibido"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        mp = MercadoPagoService()
-        mp_payment = mp.consultar_pago(payment_id_mp)
-
-        external_reference = mp_payment.get("external_reference")
-
-        payment = get_object_or_404(
-            Payment,
-            id=external_reference,
-        )
-
-        status_mp = mp_payment.get("status")
-
-        if status_mp == "approved":
-            payment.status = "approved"
-            activate_subscription_for_user(payment.user)
-        elif status_mp == "rejected":
-            payment.status = "rejected"
-        else:
-            payment.status = "pending"
-
-        payment.save()
-
-        return Response(
-            {
-                "payment_id": payment.id,
-                "mercadopago_status": status_mp,
-                "status": payment.status,
-            },
-            status=status.HTTP_200_OK,
-        )
+        local_id = request.query_params.get("payment_id", "")
+        if not re.fullmatch(r"[0-9]{1,18}", local_id):
+            raise ValidationError("Indica el identificador local de la orden.")
+        payment = get_object_or_404(Payment, pk=local_id, user=request.user)
+        return Response(payment_data(payment))
 
 
-# ==============================
-# Webhook MercadoPago
-# Confirmación real y definitiva
-# ==============================
-@csrf_exempt
-@api_view(["POST"])
-@permission_classes([AllowAny])
-def MercadoPagoWebhookView(request):
-    topic = request.GET.get("topic")
-    mp_id = request.GET.get("id")
+class VerificarPagoView(APIView):
+    """Authenticated reconciliation for tests/missed webhooks, using the same checks."""
+    permission_classes = [IsAuthenticated, IsAccountOwner]
 
-    mp = MercadoPagoService()
-
-    # Checkout Pro -> merchant_order
-    if topic == "merchant_order":
-        result = mp.sdk.merchant_order().get(mp_id)
-
-        if result["status"] != 200:
-            return Response(
-                {"status": "order_not_found"},
-                status=200,
-            )
-
-        order = result["response"]
-        payments = order.get("payments", [])
-
-        if not payments:
-            return Response(
-                {"status": "no_payments_yet"},
-                status=200,
-            )
-
-        mp_payment_id = payments[0]["id"]
-
-    # payment / payment.updated
-    elif topic == "payment":
-        mp_payment_id = mp_id
-
-    else:
-        return Response(
-            {"status": "ignored"},
-            status=200,
-        )
-
-    mp_payment = mp.consultar_pago(mp_payment_id)
-    status_mp = mp_payment.get("status")
-
-    external_reference = mp_payment.get("external_reference")
-
-    if not external_reference:
-        return Response(
-            {"status": "no_reference"},
-            status=200,
-        )
-
-    try:
-        payment = Payment.objects.get(
-            id=external_reference,
-        )
-    except Payment.DoesNotExist:
-        return Response(
-            {"status": "payment_not_found"},
-            status=200,
-        )
-
-    if status_mp == "approved":
-        payment.status = "approved"
-        activate_subscription_for_user(payment.user)
-    elif status_mp == "rejected":
-        payment.status = "rejected"
-    else:
-        payment.status = "pending"
-
-    payment.save()
-
-    return Response(
-        {
-            "status": "ok",
-            "payment_id": payment.id,
-            "mercadopago_status": status_mp,
-        },
-        status=200,
-    )
+    def post(self, request, payment_id):
+        payment = get_object_or_404(Payment, pk=payment_id, user=request.user)
+        if not isinstance(request.data, dict) or set(request.data) != {"provider_payment_id"}:
+            raise ValidationError("Indica únicamente provider_payment_id.")
+        provider_id = str(request.data["provider_payment_id"])
+        if not re.fullmatch(r"[0-9]{1,100}", provider_id):
+            raise ValidationError("Identificador del proveedor inválido.")
+        data = MercadoPagoService().consultar_pago(provider_id)
+        payment = reconcile(provider_id, data, expected_order=payment)
+        return Response(payment_data(payment))
 
 
-# ==============================
-# Simulación de pago aprobado
-# Solo desarrollo
-# ==============================
+class MercadoPagoWebhookAPIView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []  # HMAC, not a browser/JWT, authenticates notifications.
+
+    def post(self, request):
+        provider_id = verify_notification(request)
+        data = MercadoPagoService().consultar_pago(provider_id)
+        payment = reconcile(provider_id, data)
+        return Response({"status": "ok", "requires_review": payment.needs_review})
+
+
+MercadoPagoWebhookView = MercadoPagoWebhookAPIView.as_view()
+
+
 class SimularPagoAprobadoView(APIView):
     permission_classes = [IsAuthenticated, IsAccountOwner]
 
     def post(self, request, payment_id):
-        if not settings.DEBUG:
-            return Response(
-                {
-                    "error": "No disponible en producción",
-                },
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        payment = get_object_or_404(
-            Payment,
-            id=payment_id,
-            user=request.user,
-        )
-
-        payment.status = "approved"
-        payment.save()
-
-        user = payment.user
-        activate_subscription_for_user(user)
-
-        return Response(
-            {
-                "message": "Pago aprobado (simulado)",
-                "payment_id": payment.id,
-                "user_id": user.id,
-                "suscripcion_activa": user.suscripcion_activa,
-            },
-            status=status.HTTP_200_OK,
-        )
+        # Do not resurrect the old DEBUG shortcut: unit tests mock provider data.
+        return Response({"detail": "La activación simulada fue retirada. Usa las pruebas aisladas."}, status=410)

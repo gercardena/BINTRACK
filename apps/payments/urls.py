@@ -4,12 +4,14 @@ from .views import (
     ConfirmarPagoView,
     MercadoPagoWebhookView,
     SimularPagoAprobadoView,
+    VerificarPagoView,
 )
 
 urlpatterns = [
     path("crear/", CrearPagoView.as_view(), name="crear_pago"),
     path("confirmar/", ConfirmarPagoView.as_view(), name="confirmar_pago"),
     path("webhook/", MercadoPagoWebhookView, name="mp_webhook"),
+    path("verificar/<int:payment_id>/", VerificarPagoView.as_view(), name="verificar_pago"),
 
     # 🧪 Simulación de pago aprobado
     path(
