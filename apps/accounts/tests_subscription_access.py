@@ -1,19 +1,22 @@
 from datetime import datetime, timedelta, timezone as dt_timezone
+from io import StringIO
 from types import SimpleNamespace
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 from django.apps import apps
 from django.contrib.auth import get_user_model
+from django.core.management import call_command
 from django.test import SimpleTestCase, TestCase
 from django.urls import URLResolver, get_resolver
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from .models import SubscriptionPlan, UserSubscription, UsuarioAsociado
+from .models import SubscriptionGrant, SubscriptionPlan, UserSubscription, UsuarioAsociado
 from .permissions.subscription import HasActiveSubscription
 from .services.monthly_periods import next_month, renew_monthly_period
 from .services.subscription_access import subscription_access
+from .services.trial_periods import grant_march_white_period
 
 User = get_user_model()
 UTC = dt_timezone.utc
@@ -121,6 +124,95 @@ class SubscriptionRenewalTests(TestCase):
         with self.assertRaises(PermissionDenied):
             renew_monthly_period(secondary, at=jan)
         self.assertFalse(UserSubscription.objects.filter(usuario=secondary).exists())
+
+
+class MarchWhiteGrantTests(TestCase):
+    def setUp(self):
+        self.owner = User.objects.create_user(username="trial_owner")
+        self.actor = User.objects.create_user(username="trial_admin", is_staff=True)
+        self.now = datetime(2026, 10, 31, 11, 30, tzinfo=CL)
+
+    def test_grant_starts_now_for_expired_account_and_uses_current_tier(self):
+        secondary = User.objects.create_user(username="trial_secondary")
+        UsuarioAsociado.objects.create(titular=self.owner, usuario_asociado=secondary)
+        plan = SubscriptionPlan.objects.get(codigo="bintrack_mensual_0")
+        old_end = self.now - timedelta(days=20)
+        UserSubscription.objects.create(
+            usuario=self.owner,
+            plan=plan,
+            fecha_inicio=old_end - timedelta(days=30),
+            fecha_fin=old_end,
+        )
+
+        grant = grant_march_white_period(
+            self.owner,
+            granted_by=self.actor,
+            reason="Marcha blanca autorizada",
+            at=self.now,
+        )
+
+        subscription = UserSubscription.objects.get(usuario=self.owner)
+        self.assertEqual(subscription.plan.precio, 60000)
+        self.assertEqual(subscription.fecha_inicio, self.now)
+        self.assertEqual(subscription.fecha_fin, next_month(self.now, 31))
+        self.assertEqual(grant.previous_end, old_end)
+        self.assertEqual(grant.granted_by, self.actor)
+        self.assertEqual(grant.granted_from, self.now)
+        self.assertEqual(grant.granted_until, subscription.fecha_fin)
+        self.assertTrue(subscription_access(subscription, at=self.now)["puede_operar"])
+        self.assertEqual(SubscriptionGrant.objects.count(), 1)
+
+    def test_current_period_is_extended_from_its_due_date(self):
+        plan = SubscriptionPlan.objects.get(codigo="bintrack_mensual_0")
+        due = self.now + timedelta(days=8)
+        UserSubscription.objects.create(
+            usuario=self.owner,
+            plan=plan,
+            fecha_inicio=self.now - timedelta(days=22),
+            fecha_fin=due,
+            dia_facturacion=due.day,
+        )
+
+        grant = grant_march_white_period(
+            self.owner,
+            granted_by=self.actor,
+            reason="Extensión de prueba",
+            at=self.now,
+        )
+
+        self.assertEqual(grant.granted_from, due)
+        self.assertEqual(grant.granted_until, next_month(due, due.day))
+
+    def test_secondary_non_staff_and_missing_reason_are_rejected(self):
+        secondary = User.objects.create_user(username="trial_secondary")
+        UsuarioAsociado.objects.create(titular=self.owner, usuario_asociado=secondary)
+        non_staff = User.objects.create_user(username="not_staff")
+        from rest_framework.exceptions import PermissionDenied, ValidationError
+
+        with self.assertRaises(PermissionDenied):
+            grant_march_white_period(secondary, granted_by=self.actor, reason="No procede", at=self.now)
+        with self.assertRaises(PermissionDenied):
+            grant_march_white_period(self.owner, granted_by=non_staff, reason="No procede", at=self.now)
+        with self.assertRaises(ValidationError):
+            grant_march_white_period(self.owner, granted_by=self.actor, reason=" ", at=self.now)
+        self.assertFalse(UserSubscription.objects.filter(usuario=self.owner).exists())
+        self.assertFalse(SubscriptionGrant.objects.exists())
+
+    def test_management_command_records_the_authorized_grant(self):
+        output = StringIO()
+
+        call_command(
+            "grant_march_white",
+            self.owner.username,
+            actor=self.actor.username,
+            reason="Piloto autorizado",
+            stdout=output,
+        )
+
+        grant = SubscriptionGrant.objects.get(owner=self.owner)
+        self.assertEqual(grant.granted_by, self.actor)
+        self.assertEqual(grant.reason, "Piloto autorizado")
+        self.assertIn("Marcha blanca otorgada", output.getvalue())
 
 
 class SubscriptionBusinessAccessTests(TestCase):

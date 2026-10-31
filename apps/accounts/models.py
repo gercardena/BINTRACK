@@ -87,6 +87,35 @@ class UserSubscription(models.Model):
 
 
 # ----------------------------------------------------
+# Periodos administrativos de marcha blanca
+# ----------------------------------------------------
+class SubscriptionGrant(models.Model):
+    """Auditable administrative grant; it is never created by the mobile app."""
+
+    owner = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        related_name="subscription_grants",
+    )
+    granted_by = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        related_name="subscription_grants_made",
+    )
+    reason = models.CharField(max_length=250)
+    previous_end = models.DateTimeField(null=True, blank=True)
+    granted_from = models.DateTimeField()
+    granted_until = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Marcha blanca: {self.owner.username} hasta {self.granted_until:%Y-%m-%d}"
+
+
+# ----------------------------------------------------
 # Usuario asociado a una suscripción/titular
 # ----------------------------------------------------
 class UsuarioAsociado(models.Model):
