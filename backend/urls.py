@@ -15,6 +15,7 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
+from django.http import JsonResponse
 from django.urls import path, include
 
 # 👇 JWT
@@ -24,6 +25,9 @@ from rest_framework_simplejwt.views import (
 )
 
 urlpatterns = [
+    # Ruta pública y sin datos sensibles para que Render compruebe la salud
+    # del proceso antes de enviarle tráfico.
+    path("healthz/", lambda request: JsonResponse({"status": "ok"}), name="healthz"),
     path('admin/', admin.site.urls),
 
     # 🔐 Auth JWT

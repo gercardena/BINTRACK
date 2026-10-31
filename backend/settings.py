@@ -88,6 +88,11 @@ SECURE_SSL_REDIRECT = env_bool(
     default=False,
 )
 
+if env_bool("DJANGO_SECURE_PROXY_SSL_HEADER", default=False):
+    # Render termina HTTPS antes de reenviar la solicitud a Django.
+    # Con esta cabecera Django reconoce correctamente las solicitudes seguras.
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
 SESSION_COOKIE_SECURE = env_bool(
     "DJANGO_SESSION_COOKIE_SECURE",
     default=False,
