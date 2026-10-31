@@ -3,7 +3,7 @@
 Este repositorio incluye `render.yaml` para crear los recursos productivos de
 BINTRACK desde la rama `main`:
 
-- Servicio web: `bintrack-api` (`0.5c-512mb`).
+- Servicio web: `bintrack-backend` (`0.5c-512mb`).
 - PostgreSQL: `bintrack-db` (`0.1c-256mb`, disco inicial de 1 GB).
 - Comprobación de salud: `GET /healthz/` responde `200` con
   `{"status": "ok"}`.
@@ -27,7 +27,7 @@ vacía. Antes de apuntar el APK a Render se debe:
 
 1. En Render, crear un Blueprint desde el repositorio `BINTRACK` y elegir la
    rama `main`.
-2. Revisar que se muestren exactamente `bintrack-api` y `bintrack-db` con los
+2. Revisar que se muestren exactamente `bintrack-backend` y `bintrack-db` con los
    planes indicados en `render.yaml`.
 3. Confirmar el cargo mostrado por Render antes de crear los recursos.
 4. Tras el primer despliegue, abrir `https://<subdominio>.onrender.com/healthz/`

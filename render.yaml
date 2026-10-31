@@ -1,8 +1,8 @@
 services:
   - type: web
-    name: bintrack-api
+    name: bintrack-backend
     runtime: python
-    region: virginia
+    region: ohio
     plan: 0.5c-512mb
     branch: main
     buildCommand: ./build.sh
@@ -34,7 +34,7 @@ services:
 
 databases:
   - name: bintrack-db
-    region: virginia
+    region: ohio
     plan: 0.1c-256mb
     diskSizeGB: 1
     databaseName: bintrack
