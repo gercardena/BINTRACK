@@ -1,4 +1,7 @@
+from decimal import Decimal
+
 from django.db import transaction
+from django.db.models import Sum
 from rest_framework import serializers
 
 from apps.accounts.services.users import get_usuario_titular
@@ -37,9 +40,14 @@ class PagoSerializer(serializers.ModelSerializer):
         ]
 
         read_only_fields = [
-            "monto",
             "fecha",
         ]
+
+        extra_kwargs = {
+            "monto": {
+                "required": False,
+            },
+        }
 
     def __init__(self, *args, **kwargs):
 
@@ -60,9 +68,9 @@ class PagoSerializer(serializers.ModelSerializer):
 
     def validate_sale(self, sale):
 
-        if sale.estado != "confirmed":
+        if sale.estado not in ["confirmed", "partial"]:
             raise serializers.ValidationError(
-                "Solo se pueden pagar ventas confirmadas."
+                "Solo se pueden registrar abonos en ventas confirmadas."
             )
 
         if sale.total <= 0:
@@ -70,12 +78,18 @@ class PagoSerializer(serializers.ModelSerializer):
                 "La venta debe tener un total mayor que cero."
             )
 
-        if Pago.objects.filter(sale=sale).exists():
-            raise serializers.ValidationError(
-                "La venta ya tiene un pago registrado."
-            )
-
         return sale
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        monto = attrs.get("monto")
+
+        if monto is not None and monto <= 0:
+            raise serializers.ValidationError({
+                "monto": "El abono debe ser mayor que cero.",
+            })
+
+        return attrs
 
     def create(self, validated_data):
 
@@ -98,28 +112,35 @@ class PagoSerializer(serializers.ModelSerializer):
                 )
             )
 
-            if sale.estado != "confirmed":
+            if sale.estado not in ["confirmed", "partial"]:
                 raise serializers.ValidationError({
                     "sale": (
-                        "Solo se pueden pagar "
-                        "ventas confirmadas."
+                        "Solo se pueden registrar abonos "
+                        "en ventas confirmadas."
                     )
                 })
 
-            if Pago.objects.filter(sale=sale).exists():
+            total_pagado = Pago.objects.filter(
+                sale=sale,
+            ).aggregate(total=Sum("monto"))["total"] or Decimal("0.00")
+
+            saldo_pendiente = sale.total - total_pagado
+            monto = validated_data.get("monto") or saldo_pendiente
+
+            if monto > saldo_pendiente:
                 raise serializers.ValidationError({
-                    "sale": (
-                        "La venta ya tiene "
-                        "un pago registrado."
-                    )
+                    "monto": "El abono no puede superar el saldo pendiente.",
                 })
+
+            validated_data["monto"] = monto
 
             pago = Pago.objects.create(
                 sale=sale,
-                monto=sale.total,
                 **validated_data,
             )
 
-            sale.pay()
+            sale.actualizar_estado_pago(
+                total_pagado + pago.monto,
+            )
 
         return pago

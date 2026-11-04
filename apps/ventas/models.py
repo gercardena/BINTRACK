@@ -1,6 +1,7 @@
 from django.db import models, transaction
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.db.models import Max, Sum
 from decimal import Decimal
 
@@ -49,6 +50,7 @@ class Sale(models.Model):
     STATUS_CHOICES = [
         ("draft", "Borrador"),
         ("confirmed", "Confirmada"),
+        ("partial", "Abonada parcialmente"),
         ("paid", "Pagada"),
         ("cancelled", "Cancelada"),
     ]
@@ -118,6 +120,37 @@ class Sale(models.Model):
         self.total = subtotal
 
         super().save(update_fields=["subtotal", "iva", "total"])
+
+    @property
+    def total_pagado(self):
+        return self.pagos.aggregate(
+            total=Sum("monto"),
+        )["total"] or Decimal("0.00")
+
+    @property
+    def saldo_pendiente(self):
+        return max(
+            Decimal("0.00"),
+            self.total - self.total_pagado,
+        )
+
+    def actualizar_estado_pago(self, total_pagado=None):
+        total_pagado = (
+            self.total_pagado
+            if total_pagado is None
+            else total_pagado
+        )
+
+        if total_pagado >= self.total:
+            nuevo_estado = "paid"
+        elif total_pagado > 0:
+            nuevo_estado = "partial"
+        else:
+            nuevo_estado = "confirmed"
+
+        if self.estado != nuevo_estado:
+            self.estado = nuevo_estado
+            self.save(update_fields=["estado"])
 
     # =========================================
     # 🔹 CONFIRMAR VENTA
@@ -240,14 +273,11 @@ class Sale(models.Model):
     # =========================================
 
     def pay(self):
-
-        if self.estado != "confirmed":
+        if self.estado not in ["confirmed", "partial"]:
             raise ValidationError(
-                "Solo ventas confirmadas pueden pagarse"
+                "Solo ventas confirmadas o con abonos pueden pagarse"
             )
-
-        self.estado = "paid"
-        self.save(update_fields=["estado"])
+        self.actualizar_estado_pago()
 
     # =========================================
     # 🔹 CANCELAR

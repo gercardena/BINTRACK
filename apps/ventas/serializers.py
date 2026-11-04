@@ -163,6 +163,9 @@ class SaleSerializer(serializers.ModelSerializer):
         read_only=True,
     )
 
+    total_pagado = serializers.SerializerMethodField()
+    saldo_pendiente = serializers.SerializerMethodField()
+
     class Meta:
         model = Sale
 
@@ -175,6 +178,8 @@ class SaleSerializer(serializers.ModelSerializer):
             "subtotal",
             "iva",
             "total",
+            "total_pagado",
+            "saldo_pendiente",
             "items",
             "fecha_creacion",
         ]
@@ -209,3 +214,9 @@ class SaleSerializer(serializers.ModelSerializer):
             )
 
         return cliente
+
+    def get_total_pagado(self, sale):
+        return sale.total_pagado
+
+    def get_saldo_pendiente(self, sale):
+        return sale.saldo_pendiente

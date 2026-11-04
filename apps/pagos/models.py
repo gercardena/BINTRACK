@@ -9,10 +9,10 @@ class Pago(models.Model):
         ("tarjeta", "Tarjeta"),
     ]
 
-    sale = models.OneToOneField(
+    sale = models.ForeignKey(
         "ventas.Sale",
         on_delete=models.PROTECT,
-        related_name="pago",
+        related_name="pagos",
     )
 
     monto = models.DecimalField(
