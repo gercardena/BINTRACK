@@ -108,9 +108,17 @@ CORS_ALLOW_ALL_ORIGINS = env_bool(
     default=DEBUG,
 )
 
+# La web pública de BINTRACK se sirve desde Render. Mantener este origen como
+# valor seguro por defecto evita que una variable vacía bloquee el inicio de
+# sesión web, sin habilitar CORS para sitios arbitrarios. Si se configura un
+# dominio propio o más de un origen, DJANGO_CORS_ALLOWED_ORIGINS lo reemplaza
+# con una lista separada por comas.
 CORS_ALLOWED_ORIGINS = env_list(
     "DJANGO_CORS_ALLOWED_ORIGINS",
-)
+    default=(
+        "" if DEBUG else "https://bintrack-web.onrender.com"
+    ),
+) or ([] if DEBUG else ["https://bintrack-web.onrender.com"])
 
 CORS_ALLOW_HEADERS = list(default_headers) + [
     "authorization",
