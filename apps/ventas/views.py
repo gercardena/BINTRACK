@@ -1,4 +1,5 @@
 from datetime import date, timedelta
+from decimal import Decimal
 
 from django.db import transaction
 from django.db.models import Sum
@@ -252,7 +253,12 @@ class SaleViewSet(viewsets.ModelViewSet):
         desde_param = request.query_params.get("desde")
         hasta_param = request.query_params.get("hasta")
 
-        if desde_param and hasta_param:
+        if desde_param or hasta_param:
+            if not (desde_param and hasta_param):
+                raise ValidationError(
+                    "Debes indicar ambas fechas para consultar un período personalizado."
+                )
+
             try:
                 desde = date.fromisoformat(desde_param)
                 hasta = date.fromisoformat(hasta_param)
@@ -260,6 +266,11 @@ class SaleViewSet(viewsets.ModelViewSet):
             except ValueError:
                 raise ValidationError(
                     "Las fechas deben usar formato YYYY-MM-DD."
+                )
+
+            if desde > hasta:
+                raise ValidationError(
+                    "La fecha inicial no puede ser posterior a la fecha final."
                 )
 
         elif periodo == "hoy":
@@ -283,6 +294,7 @@ class SaleViewSet(viewsets.ModelViewSet):
                 usuario=titular,
                 estado__in=[
                     "confirmed",
+                    "partial",
                     "paid",
                 ],
                 fecha_creacion__date__gte=desde,
@@ -294,51 +306,46 @@ class SaleViewSet(viewsets.ModelViewSet):
             .prefetch_related(
                 "items__product",
                 "items__bin",
+                "pagos",
             )
             .order_by(
                 "-fecha_creacion",
             )
         )
 
-        ventas_contado = ventas.filter(
-            estado="paid",
-        )
-
-        ventas_credito = ventas.filter(
-            estado="confirmed",
-        )
-
-        total_contado = (
-            ventas_contado.aggregate(
-                total=Sum("total"),
-            )["total"] or 0
-        )
-
-        total_credito = (
-            ventas_credito.aggregate(
-                total=Sum("total"),
-            )["total"] or 0
-        )
-
-        total_vendido = total_contado + total_credito
-
-        clientes_pagados = (
-            ventas_contado
-            .values("cliente_id")
-            .distinct()
-            .count()
-        )
-
-        clientes_credito = (
-            ventas_credito
-            .values("cliente_id")
-            .distinct()
-            .count()
-        )
-
         ventas_data = []
+        total_vendido = Decimal("0.00")
+        total_abonado = Decimal("0.00")
+        total_pendiente = Decimal("0.00")
+        ventas_pagadas = 0
+        ventas_pendientes = 0
+        clientes_pagados = set()
+        clientes_pendientes = set()
 
         for sale in ventas:
+
+            total_pagado = sum(
+                (pago.monto for pago in sale.pagos.all()),
+                Decimal("0.00"),
+            )
+            saldo_pendiente = max(
+                Decimal("0.00"),
+                sale.total - total_pagado,
+            )
+            total_vendido += sale.total
+            total_abonado += total_pagado
+            total_pendiente += saldo_pendiente
+
+            if saldo_pendiente == 0:
+                ventas_pagadas += 1
+                clientes_pagados.add(sale.cliente_id)
+                tipo_reporte = "pagada"
+            else:
+                ventas_pendientes += 1
+                clientes_pendientes.add(sale.cliente_id)
+                tipo_reporte = (
+                    "abonada" if total_pagado > 0 else "pendiente"
+                )
 
             items = []
 
@@ -354,12 +361,6 @@ class SaleViewSet(viewsets.ModelViewSet):
                     "subtotal": item.subtotal,
                 })
 
-            tipo_reporte = (
-                "contado"
-                if sale.estado == "paid"
-                else "credito"
-            )
-
             ventas_data.append({
                 "id": sale.id,
                 "numero": sale.numero,
@@ -369,6 +370,8 @@ class SaleViewSet(viewsets.ModelViewSet):
                 "estado": sale.estado,
                 "tipo_reporte": tipo_reporte,
                 "total": sale.total,
+                "total_pagado": total_pagado,
+                "saldo_pendiente": saldo_pendiente,
                 "items": items,
             })
 
@@ -378,15 +381,21 @@ class SaleViewSet(viewsets.ModelViewSet):
             "hasta": hasta,
 
             "total_vendido": total_vendido,
-            "total_contado": total_contado,
-            "total_credito": total_credito,
+            "total_abonado": total_abonado,
+            "total_pendiente": total_pendiente,
+            # Mantener estas claves para versiones anteriores de la app.
+            "total_contado": total_abonado,
+            "total_credito": total_pendiente,
 
             "cantidad_ventas": ventas.count(),
-            "cantidad_ventas_contado": ventas_contado.count(),
-            "cantidad_ventas_credito": ventas_credito.count(),
+            "cantidad_ventas_pagadas": ventas_pagadas,
+            "cantidad_ventas_pendientes": ventas_pendientes,
+            "cantidad_ventas_contado": ventas_pagadas,
+            "cantidad_ventas_credito": ventas_pendientes,
 
-            "cantidad_clientes_pagados": clientes_pagados,
-            "cantidad_clientes_credito": clientes_credito,
+            "cantidad_clientes_pagados": len(clientes_pagados),
+            "cantidad_clientes_pendientes": len(clientes_pendientes),
+            "cantidad_clientes_credito": len(clientes_pendientes),
 
             "ventas": ventas_data,
         }
