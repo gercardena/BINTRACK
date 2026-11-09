@@ -192,6 +192,17 @@ class BinBalanceView(APIView):
         ).annotate(
             entregados=Sum("cantidad", filter=Q(tipo_movimiento="prestamo")),
             devueltos=Sum("cantidad", filter=Q(tipo_movimiento="devolucion")),
+            deposito_recibido=Sum(
+                "deposito_pagado",
+                filter=Q(
+                    tipo_movimiento="prestamo",
+                    garantia_confirmada=True,
+                ),
+            ),
+            deposito_devuelto=Sum(
+                "deposito_devuelto",
+                filter=Q(tipo_movimiento="devolucion"),
+            ),
         ).order_by("cliente__nombre", "bin_type__nombre")
 
         resultado = []
@@ -199,6 +210,12 @@ class BinBalanceView(APIView):
             entregados = grupo["entregados"] or 0
             devueltos = grupo["devueltos"] or 0
             saldo = entregados - devueltos
+            deposito_recibido = grupo["deposito_recibido"] or 0
+            deposito_devuelto = grupo["deposito_devuelto"] or 0
+            deposito_retenido = max(
+                deposito_recibido - deposito_devuelto,
+                0,
+            )
 
             if solo_pendientes and saldo <= 0:
                 continue
@@ -213,6 +230,9 @@ class BinBalanceView(APIView):
                 "devueltos": devueltos,
                 "saldo": saldo,
                 "deposito_pendiente": saldo * grupo["bin_type__valor_deposito"],
+                "deposito_recibido": deposito_recibido,
+                "deposito_devuelto": deposito_devuelto,
+                "deposito_retenido": deposito_retenido,
             }
             resultado.append(BinBalanceSerializer(data).data)
 

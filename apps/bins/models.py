@@ -88,6 +88,17 @@ class BinMovement(models.Model):
         default=0,
     )
 
+    # Evita interpretar como dinero real los montos históricos que antes se
+    # generaban automáticamente junto con una venta.
+    garantia_confirmada = models.BooleanField(default=False)
+
+    # Se registra solo al devolver una garantía realmente recibida.
+    deposito_devuelto = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=0,
+    )
+
     referencia = models.CharField(
         max_length=50,
         null=True,

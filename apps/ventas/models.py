@@ -254,10 +254,10 @@ class Sale(models.Model):
                     bin_type_id=grupo["bin_id"],
                     tipo_movimiento="prestamo",
                     cantidad=grupo["bins_total"],
-                    deposito_pagado=(
-                        inventario.bin.valor_deposito
-                        * grupo["bins_total"]
-                    ),
+                    # La venta entrega bins, pero no presume que el cliente
+                    # dejó una garantía. Esa garantía se registra explícitamente
+                    # desde el módulo de envases cuando se recibe dinero.
+                    deposito_pagado=0,
                     usuario=sale.usuario,
                     referencia=sale.numero,
                 )
@@ -351,10 +351,8 @@ class Sale(models.Model):
                     bin_type_id=grupo["bin_id"],
                     tipo_movimiento="devolucion",
                     cantidad=grupo["bins_total"],
-                    deposito_pagado=(
-                        inventario.bin.valor_deposito
-                        * grupo["bins_total"]
-                    ),
+                    deposito_pagado=0,
+                    deposito_devuelto=0,
                     usuario=sale.usuario,
                     referencia=(
                         f"Cancelación {sale.numero}"
