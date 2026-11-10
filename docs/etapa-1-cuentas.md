@@ -18,12 +18,26 @@
 
 La pantalla presenta una **referencia mensual según los usuarios activos**, no un pago confirmado ni un saldo exigible. Crear/desactivar usuarios no cambia la suscripción, las fechas o el dinero cobrado. Los tres nuevos planes no se asignan automáticamente a períodos anteriores.
 
+## Alta administrativa y contraseña temporal
+
+El registro público no está habilitado. El administrador crea la cuenta principal de un negocio y entrega una contraseña temporal mediante:
+
+```text
+python manage.py create_business_user <usuario> --email <correo> --temporary-password "<clave-temporal>"
+```
+
+La cuenta nueva queda marcada para cambiar esa contraseña en su primer ingreso. Flutter consulta el perfil, muestra obligatoriamente la pantalla de cambio y el servidor valida la contraseña actual y las reglas de seguridad antes de guardar la nueva. Las cuentas históricas no se marcan de forma retroactiva, por lo que sus usuarios no son forzados a cambiar una contraseña que ya conocen.
+
+Los secundarios creados desde **Usuarios y suscripción** siguen el mismo criterio: reciben una contraseña inicial y deben personalizarla antes de operar. Después, cualquier usuario puede cambiar su contraseña desde el acceso de seguridad en Inicio.
+
 ## API
 
 - `GET /api/accounts/cuenta/`: catálogo, referencia mensual, vigencia existente y secundarios del principal.
 - `POST /api/accounts/cuenta/`: crea un secundario. Campos: `username`, `email`, `password`, opcionales `first_name`, `last_name`, `telefono`.
 - `PUT /api/accounts/cuenta/usuarios/{id}/`: datos de contacto y/o `activo`. El id corresponde a la relación. Campos protegidos o desconocidos se rechazan.
 - El perfil incorpora `puede_gestionar_cuenta`; Flutter usa esta capacidad para mostrar el acceso. El servidor aplica la autorización independientemente de la interfaz.
+- El perfil incorpora `debe_cambiar_contrasena`. Si es verdadero, la aplicación dirige al usuario al cambio obligatorio de contraseña.
+- `PUT /api/accounts/user/change-password/`: recibe `contrasena_actual` y `nueva_contrasena`; cambia la clave y elimina la marca de contraseña temporal.
 
 ## Prueba manual local
 

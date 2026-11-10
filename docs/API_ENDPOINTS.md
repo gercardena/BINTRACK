@@ -94,6 +94,10 @@ Body préstamo:
   "deposito_pagado": "0.00",
   "referencia": "Préstamo manual"
 }
+Notas de préstamos y devoluciones:
+- `deposito_pagado` representa únicamente dinero recibido como garantía real. Un préstamo creado automáticamente al confirmar una venta no inventa un depósito.
+- Para una devolución se envía `tipo_movimiento: "devolucion"` y, opcionalmente, `deposito_devuelto`. El monto puede ser parcial, pero no puede exceder la garantía confirmada que continúa retenida.
+- El balance incluye la cantidad pendiente y los montos `deposito_recibido`, `deposito_devuelto` y `deposito_retenido` por cliente y tipo de envase.
 Tipos de movimiento:
 entrada
 prestamo
@@ -103,6 +107,15 @@ Balance por cliente/envase
 GET /api/bins/balance/
 Clientes para movimientos
 GET /api/bins/clientes/
+Cambio de contraseña
+PUT /api/accounts/user/change-password/
+Body:
+{
+  "contrasena_actual": "clave temporal o actual",
+  "nueva_contrasena": "nueva clave personal"
+}
+Nota:
+Si el perfil devuelve `debe_cambiar_contrasena: true`, la aplicación debe solicitar este cambio antes de permitir la operación normal.
 Inventario
 Resumen inventario
 GET /api/inventario/
