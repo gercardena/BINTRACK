@@ -8,6 +8,7 @@ from apps.accounts.services.subscription_access import subscription_access
 
 from .models import UserSubscription
 from .serializers import (
+    ChangePasswordSerializer,
     LoginSerializer,
     UserSubscriptionSerializer,
 )
@@ -85,3 +86,23 @@ class UserProfileView(APIView):
         )
 
         return Response(serializer.data)
+
+
+class ChangePasswordView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request):
+        serializer = ChangePasswordSerializer(
+            data=request.data,
+            context={"request": request},
+        )
+        serializer.is_valid(raise_exception=True)
+
+        user = request.user
+        user.set_password(serializer.validated_data["nueva_contrasena"])
+        user.debe_cambiar_contrasena = False
+        user.save(update_fields=["password", "debe_cambiar_contrasena"])
+
+        return Response({
+            "detail": "Contraseña actualizada correctamente.",
+        })

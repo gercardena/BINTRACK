@@ -1,9 +1,11 @@
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
+from io import StringIO
 from threading import Barrier
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.core.management import call_command
 from django.db import close_old_connections, connection, connections
 from django.test import TestCase, TransactionTestCase
 from django.utils import timezone
@@ -19,6 +21,16 @@ User = get_user_model()
 
 class AccountManagementTests(TestCase):
     def setUp(self):
+        for secondary_count, price in [(0, 50000), (1, 60000), (2, 70000)]:
+            SubscriptionPlan.objects.get_or_create(
+                codigo=f"bintrack_mensual_{secondary_count}",
+                defaults={
+                    "nombre": f"Principal + {secondary_count} secundarios",
+                    "usuarios_secundarios": secondary_count,
+                    "precio": price,
+                    "duracion_dias": 30,
+                },
+            )
         self.owner = User.objects.create_user(username="principal", email="principal@example.test")
         self.other = User.objects.create_user(username="otra_cuenta")
         self.client = APIClient()
@@ -66,6 +78,7 @@ class AccountManagementTests(TestCase):
             self.assertFalse(user.is_staff)
             self.assertFalse(user.is_superuser)
             self.assertFalse(user.suscripcion_activa)
+            self.assertTrue(user.debe_cambiar_contrasena)
             self.assertEqual(self.summary().data["plan_segun_usuarios"]["precio_final_clp"], price)
         self.assertEqual(self.create("3").status_code, 400)
         self.assertFalse(User.objects.filter(username="operador3").exists())
@@ -77,6 +90,42 @@ class AccountManagementTests(TestCase):
         self.client.force_authenticate(None)
         self.assertEqual(self.summary().status_code, 401)
         self.assertEqual(self.create().status_code, 401)
+
+    def test_change_password_clears_temporary_password_requirement(self):
+        self.owner.debe_cambiar_contrasena = True
+        self.owner.set_password("Temporal-Segura!1234")
+        self.owner.save()
+
+        response = self.client.put(
+            "/api/accounts/user/change-password/",
+            {
+                "contrasena_actual": "Temporal-Segura!1234",
+                "nueva_contrasena": "Nueva-Segura!9876",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200, response.data)
+        self.owner.refresh_from_db()
+        self.assertTrue(self.owner.check_password("Nueva-Segura!9876"))
+        self.assertFalse(self.owner.debe_cambiar_contrasena)
+
+    def test_business_user_command_marks_password_as_temporary(self):
+        output = StringIO()
+        call_command(
+            "create_business_user",
+            "negocio_demo",
+            "--email",
+            "negocio@example.test",
+            "--temporary-password",
+            "Temporal-Segura!1234",
+            stdout=output,
+        )
+
+        user = User.objects.get(username="negocio_demo")
+        self.assertTrue(user.debe_cambiar_contrasena)
+        self.assertTrue(user.check_password("Temporal-Segura!1234"))
+        self.assertFalse(user.suscripcion_activa)
 
     def test_secondary_cannot_manage_even_with_legacy_admin_role(self):
         result = self.create()

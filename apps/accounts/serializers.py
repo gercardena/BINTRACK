@@ -1,5 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth import authenticate
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework_simplejwt.tokens import RefreshToken
 from .permissions.account_owner import es_titular
 from .services.users import get_usuario_titular
@@ -135,6 +137,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "titular_id",
             "titular_username",
             "es_usuario_asociado",
+            "debe_cambiar_contrasena",
             "puede_gestionar_cuenta",
             "suscripcion_acceso",
         ]
@@ -203,3 +206,42 @@ class UserProfileSerializer(serializers.ModelSerializer):
         titular = self.get_titular(user)
 
         return titular.id != user.id
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    contrasena_actual = serializers.CharField(
+        write_only=True,
+        trim_whitespace=False,
+        max_length=128,
+    )
+    nueva_contrasena = serializers.CharField(
+        write_only=True,
+        trim_whitespace=False,
+        max_length=128,
+    )
+
+    def validate(self, attrs):
+        user = self.context["request"].user
+        current = attrs["contrasena_actual"]
+        new = attrs["nueva_contrasena"]
+
+        if not user.check_password(current):
+            raise serializers.ValidationError({
+                "contrasena_actual": "La contraseña actual no es correcta.",
+            })
+        if new != new.strip():
+            raise serializers.ValidationError({
+                "nueva_contrasena": "No uses espacios al inicio o al final.",
+            })
+        if current == new:
+            raise serializers.ValidationError({
+                "nueva_contrasena": "Elige una contraseña distinta a la temporal.",
+            })
+        try:
+            validate_password(new, user)
+        except DjangoValidationError as error:
+            raise serializers.ValidationError({
+                "nueva_contrasena": list(error.messages),
+            }) from error
+
+        return attrs

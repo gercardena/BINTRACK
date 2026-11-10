@@ -24,6 +24,12 @@ class User(AbstractUser):
         default=False,
     )
 
+    # Las cuentas creadas por administración reciben una clave temporal.
+    # Las cuentas existentes conservan False para no interrumpir su acceso.
+    debe_cambiar_contrasena = models.BooleanField(
+        default=False,
+    )
+
     def __str__(self):
         return self.username
 

@@ -58,7 +58,11 @@ def create_secondary(owner, data):
     check_capacity(owner)
     password = data.pop("password")
     secondary = User.objects.create_user(
-        password=password, is_active=True, is_staff=False, is_superuser=False,
+        password=password,
+        is_active=True,
+        is_staff=False,
+        is_superuser=False,
+        debe_cambiar_contrasena=True,
         **data,
     )
     return UsuarioAsociado.objects.create(
